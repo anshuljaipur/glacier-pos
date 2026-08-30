@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLACIER POS</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/pos.css">
+    <link rel="stylesheet" href="css/print.css" media="print">
+</head>
+<body>
+    <header class="pos-header">
+        <div class="brand">
+            <h1>GLACIER <span class="subtitle">POS TERMINAL</span></h1>
+        </div>
+        <div class="status-bar">
+            <span id="network-status" class="status online">● ONLINE</span>
+            <span id="inventory-count">Inventory: 0 products</span>
+            <span id="last-sync">Last Sync: Never</span>
+            <button onclick="InventoryApp.sync()" class="btn-sync">↻ SYNC</button>
+        </div>
+    </header>
+
+    <main class="pos-container">
+        <section class="left-panel">
+            <div class="search-bar">
+                <input type="text" id="pos-search" placeholder="🔎 Scan barcode or search product (F2)..." autocomplete="off">
+            </div>
+            <div class="filters">
+                <select id="filter-category"><option value="all">All Categories</option></select>
+                <select id="filter-brand"><option value="all">All Brands</option></select>
+            </div>
+            <div id="product-grid" class="product-grid">
+                </div>
+        </section>
+
+        <section class="right-panel">
+            <div class="cart-header">
+                <h2>CURRENT BILL</h2>
+                <span id="cart-count">0 ITEMS</span>
+            </div>
+            
+            <div class="cart-items" id="cart-items-container">
+                </div>
+
+            <div class="cart-summary">
+                <div class="summary-row"><span>Subtotal</span><span id="summary-subtotal">₹0.00</span></div>
+                <div class="summary-row text-danger"><span>Discount</span><input type="number" id="global-discount" value="0" class="input-small"></div>
+                <div class="summary-row"><span>GST</span><span id="summary-gst">₹0.00</span></div>
+                <div class="summary-row"><span>Round Off</span><span id="summary-roundoff">₹0.00</span></div>
+                <hr>
+                <div class="summary-row grand-total"><span>TOTAL</span><span id="summary-total">₹0.00</span></div>
+            </div>
+
+            <div class="payment-section">
+                <select id="payment-mode">
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                </select>
+                <input type="number" id="amount-received" placeholder="Amount Received">
+                <div class="change-display">Change: <span id="change-amount">₹0.00</span></div>
+            </div>
+
+            <div class="action-buttons">
+                <button onclick="CartApp.holdBill()" class="btn-secondary">HOLD (F4)</button>
+                <button onclick="CartApp.clearCart()" class="btn-danger">CLEAR</button>
+                <button onclick="CartApp.checkout()" class="btn-primary" id="btn-pay">PAY & PRINT (F8)</button>
+            </div>
+        </section>
+    </main>
+
+    <div id="print-area">
+        </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/cart.js"></script>
+    <script src="js/barcode.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

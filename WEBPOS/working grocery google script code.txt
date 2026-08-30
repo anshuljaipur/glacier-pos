@@ -1,0 +1,52 @@
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var timestamp = new Date();
+    sheet.appendRow([timestamp, data.barcode, data.itemName, data.qty]);
+    return ContentService.createTextOutput(JSON.stringify({"status": "success"})).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": error.toString()})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var jsonData = [];
+    
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var obj = {};
+      
+      for (var j = 0; j < headers.length; j++) {
+        var header = String(headers[j]).trim().toLowerCase().replace(/\s+/g, '');
+        if (header === 'itemname') header = 'name';
+        if (header === 'brandname') header = 'brand';
+        if (header === 'quantity') header = 'qty';
+        if (header === 'image') header = 'img';
+        obj[header] = row[j];
+      }
+      
+      // 🟢 SMART DISCOUNT LOGIC 🟢
+      if (obj['mrp']) {
+         if (obj['rate'] && obj['rate'] !== "") {
+             obj['price'] = obj['rate']; // If Rate exists, make it the selling price
+         } else {
+             obj['price'] = obj['mrp'];  // If Rate is empty, selling price equals MRP
+         }
+      }
+
+      obj['available'] = "yes";
+      if(obj['name'] && obj['name'] !== "") {
+        jsonData.push(obj);
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify(jsonData)).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify([{"name": "Error", "price": 0, "available": "yes"}])).setMimeType(ContentService.MimeType.JSON);
+  }
+}
