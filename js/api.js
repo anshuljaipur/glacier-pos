@@ -12,12 +12,10 @@ const API = {
     },
     async saveSale(payload) {
         try {
-            const res = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'saveSale', payload: payload })
-            });
+            const targetUrl = `${CONFIG.API_URL}?action=saveSale&data=${encodeURIComponent(JSON.stringify(payload))}`;
+            const res = await fetch(targetUrl);
             const data = await res.json();
-            if(!data.success) throw new Error(data.message);
+            if(!data.success) throw new Error(data.message || 'Failed to save sale');
             return data;
         } catch (error) {
             console.error("Save Sale Error:", error);
