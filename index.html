@@ -3,81 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLACIER POS</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>GLACIER ERP - Retail POS</title>
     <link rel="stylesheet" href="css/pos.css">
-    <link rel="stylesheet" href="css/print.css" media="print">
 </head>
 <body>
-    <header class="pos-header">
-        <div class="brand">
-            <h1>GLACIER <span class="subtitle">POS TERMINAL</span></h1>
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="page-title">GLACIER POS TERMINAL</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-right: auto; margin-left: 20px;">
+                <b>Status:</b> <span id="network-status" class="status online">● ONLINE</span> | 
+                <b>Shortcuts:</b> [Alt+S] Search | [F4] Checkout
+            </div>
+            <button class="btn btn-warning no-print" style="padding: 6px 12px; font-weight: bold;" onclick="InventoryApp.sync()">↻ Sync Inventory</button>
         </div>
-        <div class="status-bar">
-            <span id="network-status" class="status online">● ONLINE</span>
-            <span id="inventory-count">Inventory: 0 products</span>
-            <span id="last-sync">Last Sync: Never</span>
-            <button onclick="InventoryApp.sync()" class="btn-sync">↻ SYNC</button>
-        </div>
-    </header>
 
-    <main class="pos-container">
-        <section class="left-panel">
-            <div class="search-bar">
-                <input type="text" id="pos-search" placeholder="🔎 Scan barcode or search product (F2)..." autocomplete="off">
-            </div>
-            <div class="filters">
-                <select id="filter-category"><option value="all">All Categories</option></select>
-                <select id="filter-brand"><option value="all">All Brands</option></select>
-            </div>
-            <div id="product-grid" class="product-grid">
+        <div class="content-area no-print">
+            <div class="pos-layout">
+                <!-- Left Panel: Grid & Filters -->
+                <div class="grid-area">
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="posSearch" placeholder="Search by Name or Barcode... (Alt+S)" style="flex: 1; padding: 12px; font-size: 16px; border: 2px solid var(--accent); border-radius: 6px;">
+                    </div>
+                    <div class="filter-bar">
+                        <span style="font-size: 11px; font-weight: bold; color: var(--text-muted);">FILTERS:</span>
+                        <select id="filterCategory" class="filter-input"><option value="">All Categories</option></select>
+                        <select id="filterBrand" class="filter-input"><option value="">All Brands</option></select>
+                        <button onclick="InventoryApp.clearFilters()" class="btn" style="background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; padding: 5px 12px; font-size: 12px;">Clear</button>
+                    </div>
+                    <div class="item-grid" id="itemGrid">
+                        <!-- Products load here -->
+                    </div>
                 </div>
-        </section>
 
-        <section class="right-panel">
-            <div class="cart-header">
-                <h2>CURRENT BILL</h2>
-                <span id="cart-count">0 ITEMS</span>
+                <!-- Right Panel: Cart Area -->
+                <div class="cart-area">
+                    <div class="cart-header">
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="posCustomer" placeholder="Customer Name (Walk-in)" style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <input type="text" id="posMobile" placeholder="Mobile No." style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div class="cart-item cart-item-header">
+                        <div>Item</div><div>Qty</div><div>Rate</div><div>Dis%</div><div>Total</div><div></div>
+                    </div>
+                    <ul class="cart-items" id="cartBody"></ul>
+                    
+                    <div class="cart-totals">
+                        <div class="totals-row">
+                            <span>Subtotal:</span>
+                            <span id="cartSubtotal" style="font-weight: bold; color: var(--text-main);">₹0.00</span>
+                        </div>
+                        <div class="totals-row">
+                            <span>Bill Discount:
+                                <select id="billDiscountType" style="padding: 2px; border-radius: 4px; border: 1px solid #ccc;">
+                                    <option value="Amt">₹</option>
+                                    <option value="Perc">%</option>
+                                </select>
+                            </span>
+                            <input type="number" id="billDiscountValue" value="0" style="width: 80px; text-align: right; padding: 2px; border: 1px solid #ccc; border-radius: 4px;" min="0" step="0.01">
+                        </div>
+                        <div class="totals-row" style="font-size: 12px;">
+                            <span>Round Off (Auto):</span>
+                            <span id="cartRoundOff" style="font-weight: bold;">₹0.00</span>
+                        </div>
+                        <div class="totals-row" style="margin-top: 5px; border-top: 1px solid #ccc; padding-top: 10px;">
+                            <span style="font-size: 18px; font-weight: bold; color: var(--accent);">Payable:</span>
+                            <span id="cartGrandTotal" class="grand-total">₹0.00</span>
+                        </div>
+                        <button id="checkoutBtn" class="btn btn-success" style="width: 100%; font-size: 18px; font-weight: bold; padding: 15px; margin-top: 10px;" onclick="CartApp.openPaymentPopup()">CHECKOUT (F4)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Payment Checkout Modal -->
+    <div id="paymentModal" class="modal-overlay no-print">
+        <div class="modal-box" style="width: 500px;">
+            <div class="modal-header"><span style="font-size: 18px;">Split Checkout & Payment</span></div>
+            <div style="background: #eff6ff; padding: 20px; text-align: center; border-radius: 8px; border: 2px solid var(--accent); margin-bottom: 20px;">
+                <div style="font-size: 12px; font-weight: bold; color: var(--primary); text-transform: uppercase;">Amount Due</div>
+                <div id="payModalTotal" style="font-size: 36px; font-weight: 900; color: var(--accent);">₹0.00</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="width: 80px; font-weight: bold;">Cash</label>
+                    <input type="number" id="payCash" class="filter-input" style="flex: 1; font-size: 18px; font-weight: bold; color: var(--success);" placeholder="0" min="0">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="width: 80px; font-weight: bold;">UPI</label>
+                    <input type="number" id="payUPI" class="filter-input" style="flex: 1; font-size: 18px;" placeholder="0" min="0">
+                    <input type="text" id="refUPI" class="filter-input" style="flex: 1;" placeholder="Ref ID (Opt)">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="width: 80px; font-weight: bold;">Card</label>
+                    <input type="number" id="payCard" class="filter-input" style="flex: 1; font-size: 18px;" placeholder="0" min="0">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
+                    <label id="lblBalance" style="width: 80px; font-weight: bold; color: var(--danger);">Due</label>
+                    <input type="text" id="payBalance" class="filter-input" style="flex: 1; font-size: 20px; font-weight: bold; background: #f9fafb;" disabled value="0.00">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-danger" style="flex: 1; padding: 15px; font-weight: bold;" onclick="CartApp.closePaymentPopup()">Cancel (Esc)</button>
+                <button class="btn btn-success" id="btn-save-sale" style="flex: 2; font-size: 18px; padding: 15px; font-weight: bold;" onclick="CartApp.checkout()">SAVE & PRINT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thermal Receipt Modal -->
+    <div id="printWrapper" class="modal-overlay">
+        <div class="print-modal paper-80mm" id="printArea">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <h2 id="prFirmName" style="margin: 0; font-size: 1.5em; text-transform: uppercase;">GLACIER</h2>
+                <div id="prAddress" style="font-size: 0.9em; margin-top: 3px;"></div>
+                <div id="prContact" style="font-size: 0.9em;"></div>
+                <div style="margin-top: 10px; font-weight: bold; border-top: 1px dashed black; border-bottom: 1px dashed black; padding: 5px 0;">BILL OF SUPPLY</div>
             </div>
             
-            <div class="cart-items" id="cart-items-container">
-                </div>
-
-            <div class="cart-summary">
-                <div class="summary-row"><span>Subtotal</span><span id="summary-subtotal">₹0.00</span></div>
-                <div class="summary-row text-danger"><span>Discount</span><input type="number" id="global-discount" value="0" class="input-small"></div>
-                <div class="summary-row"><span>GST</span><span id="summary-gst">₹0.00</span></div>
-                <div class="summary-row"><span>Round Off</span><span id="summary-roundoff">₹0.00</span></div>
-                <hr>
-                <div class="summary-row grand-total"><span>TOTAL</span><span id="summary-total">₹0.00</span></div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9em;">
+                <div><b>To:</b> <span id="prCustomer"></span><br><b>Mob:</b> <span id="prCustMob"></span></div>
+                <div style="text-align: right;"><b>Date:</b> <span id="prDate"></span><br><b>Inv:</b> <span id="prInv"></span></div>
             </div>
-
-            <div class="payment-section">
-                <select id="payment-mode">
-                    <option value="Cash">Cash</option>
-                    <option value="UPI">UPI</option>
-                    <option value="Card">Card</option>
-                </select>
-                <input type="number" id="amount-received" placeholder="Amount Received">
-                <div class="change-display">Change: <span id="change-amount">₹0.00</span></div>
+            
+            <table class="print-table">
+                <thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate</th><th style="text-align:right;">Total</th></tr></thead>
+                <tbody id="prItemsBody"></tbody>
+            </table>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 1.2em; font-weight: bold; margin-top: 5px; border-top: 1px dashed black; padding-top: 5px;">
+                <span>Net Payable:</span>
+                <span>₹<span id="prTotal"></span></span>
             </div>
-
-            <div class="action-buttons">
-                <button onclick="CartApp.holdBill()" class="btn-secondary">HOLD (F4)</button>
-                <button onclick="CartApp.clearCart()" class="btn-danger">CLEAR</button>
-                <button onclick="CartApp.checkout()" class="btn-primary" id="btn-pay">PAY & PRINT (F8)</button>
+            
+            <div style="text-align: center; margin-top: 10px; font-size: 0.9em; font-weight: bold;">Thank You! Visit Again.</div>
+            
+            <div class="no-print" style="margin-top: 30px; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-primary" style="flex: 1; padding: 12px; font-size: 16px; font-weight: bold;" onclick="window.print()">Print Now (Enter)</button>
+                <button class="btn btn-danger" style="flex: 1; padding: 12px; font-size: 16px; font-weight: bold;" onclick="CartApp.closePrintAndReset()">Close & Next Sale (Esc)</button>
             </div>
-        </section>
-    </main>
-
-    <div id="print-area">
         </div>
+    </div>
 
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
-    <script src="js/inventory.js"></script>
-    <script src="js/cart.js"></script>
-    <script src="js/barcode.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
