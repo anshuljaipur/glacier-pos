@@ -1,89 +1,71 @@
-/* Hide print area by default on the POS screen */
-#print-area {
-    display: none;
+/* 1. COMPLETELY HIDE RECEIPT ON THE MAIN POS SCREEN */
+@media screen {
+    #print-area {
+        display: none !important;
+    }
 }
 
-/* Thermal receipt layout (triggered only during window.print()) */
+/* 2. FORMAT SPECIFICALLY FOR THERMAL PRINTERS (80mm) */
 @media print {
-    body * {
-        visibility: hidden;
-    }
-    
-    #print-area, #print-area * {
-        visibility: visible;
-    }
-    
-    #print-area {
-        display: block;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 80mm;
-        padding: 5mm;
-        font-family: monospace;
-        font-size: 12px;
-        color: #000;
-        background: #fff;
+    /* Set the physical paper size to an 80mm roll and remove browser margins */
+    @page {
+        size: 80mm auto;
+        margin: 0;
     }
 
-    .receipt-header {
-        text-align: center;
-        margin-bottom: 10px;
+    /* Hide the entire POS application from the printer */
+    body * {
+        display: none !important;
     }
+
+    /* Only show the thermal receipt area */
+    #print-area, #print-area * {
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    /* Reset the print area positioning and scale up the text */
+    #print-area {
+        position: relative !important;
+        width: 76mm !important; /* Slightly under 80mm to prevent cut-offs */
+        margin: 0 auto;
+        padding: 2mm;
+        background: #fff;
+        color: #000;
+        /* Use a thick, highly readable font for thermal printing */
+        font-family: 'Segoe UI', Arial, sans-serif !important;
+        font-size: 16px !important; 
+        font-weight: 600; 
+        line-height: 1.3;
+    }
+
+    /* Header Styling */
+    .receipt-header { text-align: center; margin-bottom: 12px; }
+    .receipt-header h2 { font-size: 24px !important; font-weight: 900; margin: 0 0 4px 0; text-transform: uppercase; }
     
-    .receipt-header h2 {
-        margin: 0;
-        font-size: 16px;
-    }
+    /* Info Section (Invoice, Date, etc.) */
+    .receipt-info { margin-bottom: 12px; border-bottom: 2px dashed #000; padding-bottom: 8px; font-size: 14px !important; }
     
-    .receipt-info {
-        margin-bottom: 10px;
-        border-bottom: 1px dashed #000;
-        padding-bottom: 5px;
+    /* Table Styling for Items */
+    .receipt-table { width: 100%; display: table !important; border-collapse: collapse; margin-bottom: 12px; }
+    .receipt-table thead { display: table-header-group !important; }
+    .receipt-table tr { display: table-row !important; }
+    .receipt-table th, .receipt-table td { 
+        display: table-cell !important; 
+        padding: 4px 0; 
+        font-size: 15px !important; 
     }
+    .receipt-table th { border-bottom: 2px dashed #000; font-weight: 800; text-align: left; }
+    .text-right { text-align: right !important; }
     
-    .receipt-table {
-        width: 100%;
-        text-align: left;
-        border-collapse: collapse;
-        margin-bottom: 10px;
-    }
+    /* Item Names inside table spanning full width */
+    .receipt-table td[colspan="4"] { font-weight: 700; padding-top: 8px; font-size: 16px !important; }
+
+    /* Totals Section */
+    .receipt-totals { border-top: 2px dashed #000; padding-top: 8px; margin-bottom: 12px; }
+    .receipt-totals div { display: flex !important; justify-content: space-between; margin-bottom: 4px; font-size: 16px !important; }
+    .receipt-totals .grand-total { font-size: 22px !important; font-weight: 900; border-top: 2px solid #000; padding-top: 8px; margin-top: 4px; }
     
-    .receipt-table th, 
-    .receipt-table td {
-        padding: 2px 0;
-    }
-    
-    .receipt-table th {
-        border-bottom: 1px dashed #000;
-    }
-    
-    .text-right {
-        text-align: right;
-    }
-    
-    .receipt-totals {
-        border-top: 1px dashed #000;
-        padding-top: 5px;
-        margin-bottom: 10px;
-    }
-    
-    .receipt-totals div {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 2px;
-    }
-    
-    .receipt-totals .grand-total {
-        font-weight: bold;
-        font-size: 14px;
-        border-top: 1px dashed #000;
-        padding-top: 5px;
-    }
-    
-    .receipt-footer {
-        text-align: center;
-        margin-top: 15px;
-        font-size: 10px;
-    }
+    /* Footer */
+    .receipt-footer { text-align: center; margin-top: 15px; font-size: 14px !important; font-weight: bold; border-top: 2px dashed #000; padding-top: 10px; }
 }
