@@ -8,27 +8,13 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar Navigation -->
+        <!-- Sidebar Navigation (Cleaned) -->
         <aside class="sidebar no-print">
             <div class="sidebar-brand">GLACIER ERP</div>
             
-            <div class="sidebar-section">MAIN</div>
-            <a href="#" class="nav-link">📊 Dashboard</a>
-            
-            <div class="sidebar-section">INVENTORY MODULE</div>
+            <div class="sidebar-section">ACTIVE MODULE</div>
             <a href="#" class="nav-link active">🛒 POS / Retail Sale</a>
-            <a href="#" class="nav-link">📦 Purchase (Inward)</a>
-            <a href="#" class="nav-link">📋 Stock Item Master</a>
-            <a href="#" class="nav-link">🏷️ Item Groups</a>
-            <a href="#" class="nav-link">📈 Stock Summary & Ledger</a>
-            <a href="#" class="nav-link">🖨️ Barcode Printing</a>
             
-            <div class="sidebar-section">ACCOUNTS MODULE</div>
-            <a href="#" class="nav-link">📒 Invoice Register</a>
-            <a href="#" class="nav-link">📘 Ledger Master</a>
-            <a href="#" class="nav-link">📝 Accounting Vouchers</a>
-            <a href="#" class="nav-link">💵 Cash & Bank Book</a>
-
             <!-- Sync Button placed at bottom of sidebar -->
             <div class="sidebar-footer">
                 <button onclick="InventoryApp.sync()" class="btn btn-sync" id="network-status">↻ Sync Data</button>
@@ -42,17 +28,12 @@
                 <div class="grid-area">
                     <div class="search-row">
                         <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
-                        <button class="btn btn-primary btn-new-item">+ New Item (Alt+C)</button>
                     </div>
                     
                     <div class="filter-bar">
                         <span class="filter-label">FILTERS:</span>
                         <select id="filterCategory" class="filter-input"><option value="">All Categories</option></select>
                         <select id="filterBrand" class="filter-input"><option value="">All Brands</option></select>
-                        <input type="number" class="filter-input input-small" placeholder="Min ₹">
-                        <span class="filter-label" style="font-weight:normal;">to</span>
-                        <input type="number" class="filter-input input-small" placeholder="Max ₹">
-                        <select id="sortOption" class="filter-input" style="margin-left: auto;"><option value="">Sort By...</option></select>
                         <button onclick="InventoryApp.clearFilters()" class="btn btn-danger-outline">Clear</button>
                     </div>
 
@@ -65,20 +46,13 @@
                 <div class="cart-area">
                     <div class="cart-tabs">
                         <button class="cart-tab active">Main Bill</button>
-                        <button class="cart-tab">Hold 1</button>
-                        <button class="cart-tab">Hold 2</button>
-                        <button class="cart-tab">Hold 3</button>
-                        <button class="cart-tab tab-settings">⚙ Settings</button>
                     </div>
 
                     <div class="cart-header-inputs">
                         <div class="flex-row">
-                            <select id="posCustomer" class="cart-input-field"><option value="Cash Walk-in">Cash Walk-in</option></select>
-                            <button class="btn btn-primary btn-icon">+</button>
-                            <input type="text" id="posMobile" class="cart-input-field" placeholder="Mobile Number">
+                            <input type="text" id="posCustomer" class="cart-input-field" style="flex: 1.5;" placeholder="Customer Name (Optional)">
+                            <input type="text" id="posMobile" class="cart-input-field" style="flex: 1;" placeholder="Mobile Number">
                         </div>
-                        <input type="text" id="posAddress" class="cart-input-field" style="width: 100%;" placeholder="Remarks (e.g. Home Delivery)">
-                        <div class="live-balance">Live Bal: <strong>₹0.00 Cr</strong></div>
                     </div>
 
                     <div class="cart-table">
@@ -127,7 +101,7 @@
         </main>
     </div>
 
-    <!-- Multi-Payment Checkout Modal (Unchanged structurally, styled via CSS) -->
+    <!-- Multi-Payment Checkout Modal -->
     <div id="paymentModal" class="modal-overlay no-print">
         <div class="modal-box">
             <div class="modal-header"><span>Split Checkout & Payment</span></div>
