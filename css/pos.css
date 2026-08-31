@@ -104,14 +104,48 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
 .paper-80mm { width: 78mm; font-size: 12px; }
 
 @media print {
-    @page { margin: 0; }
-    body * { visibility: hidden; display: none !important; }
-    #printWrapper, #printWrapper * { visibility: visible; display: block !important; }
-    #printWrapper { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; background: transparent; }
-    .print-modal { box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: none !important; }
-    .no-print { display: none !important; }
-    .print-table { display: table !important; }
+    /* Set thermal roll dimensions */
+    @page { size: 80mm auto; margin: 0; }
+    
+    /* Hide the main application and checkout modal */
+    .app-container, #paymentModal { display: none !important; }
+    
+    /* Display the print wrapper aligned to top-left */
+    #printWrapper { 
+        display: block !important; 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 78mm; 
+        background: #fff; 
+        color: #000; 
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Remove shadows and enforce width */
+    .print-modal { 
+        width: 100% !important; 
+        box-shadow: none !important; 
+        margin: 0 !important; 
+        padding: 2mm !important; 
+    }
+    
+    /* Strictly enforce HTML table structure */
+    .print-table { 
+        width: 100% !important; 
+        display: table !important; 
+        border-collapse: collapse !important; 
+    }
     .print-table thead { display: table-header-group !important; }
+    .print-table tbody { display: table-row-group !important; }
     .print-table tr { display: table-row !important; }
-    .print-table th, .print-table td { display: table-cell !important; }
+    .print-table th, .print-table td { 
+        display: table-cell !important; 
+        padding: 4px 2px !important; 
+        border-bottom: 1px dashed #ccc !important;
+    }
+    
+    /* Explicitly hide buttons in the print view */
+    .no-print { display: none !important; }
 }
