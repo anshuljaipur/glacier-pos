@@ -1,4 +1,3 @@
-// Ensure scanner listener logic remains
 let scanBuffer = "";
 let scanTimeout;
 
@@ -34,15 +33,14 @@ const InventoryApp = {
     products: [],
     async sync() {
         try {
-            document.getElementById('network-status').textContent = "● SYNCING...";
+            const btn = document.getElementById('network-status');
+            btn.textContent = "↻ Syncing...";
             this.products = await API.getInventory();
-            document.getElementById('network-status').textContent = "● ONLINE";
-            document.getElementById('network-status').className = "status online";
+            btn.textContent = "↻ Sync Data";
             this.populateFilters();
             this.renderGrid(this.products);
         } catch (err) {
-            document.getElementById('network-status').textContent = "● OFFLINE";
-            document.getElementById('network-status').className = "status offline";
+            document.getElementById('network-status').textContent = "⚠ Offline Mode";
         }
     },
     populateFilters() {
@@ -82,7 +80,6 @@ const InventoryApp = {
             
             let badgeClass = stock <= 0 ? 'stock-badge low' : 'stock-badge';
             
-            // Build the card exactly like the ERP HTML structure
             const card = document.createElement('button');
             card.className = 'item-card';
             card.type = 'button';
@@ -135,26 +132,27 @@ const CartApp = {
         const tbody = document.getElementById('cartBody');
         tbody.innerHTML = '';
         let subtotal = 0;
+        let totalItems = 0;
 
         this.items.forEach(c => {
             const gross = c.qty * c.rate;
             const disAmt = gross * (c.discountPerc / 100);
             const net = gross - disAmt;
             subtotal += net;
+            totalItems += c.qty;
 
             tbody.innerHTML += `
                 <li class="cart-item">
-                    <div style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${c.itemName}">${c.itemName}</div>
-                    <div><input type="number" class="cart-input" value="${c.qty}" onchange="CartApp.updateField('${c.barcode}', 'qty', this.value)" min="1"></div>
-                    <div><input type="number" class="cart-input" value="${c.rate}" onchange="CartApp.updateField('${c.barcode}', 'rate', this.value)" min="0" step="0.01"></div>
-                    <div><input type="number" class="cart-input" value="${c.discountPerc}" onchange="CartApp.updateField('${c.barcode}', 'discountPerc', this.value)" min="0" max="100" step="0.01"></div>
-                    <div style="font-weight:bold; text-align:right;">₹${net.toFixed(2)}</div>
-                    <button class="btn-del" onclick="CartApp.removeItem('${c.barcode}')">×</button>
+                    <div style="flex: 2; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${c.itemName}">${c.itemName}</div>
+                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField('${c.barcode}', 'qty', this.value)" min="1"></div>
+                    <div style="flex: 1;"><input type="number" class="cart-item-input" value="${c.rate}" onchange="CartApp.updateField('${c.barcode}', 'rate', this.value)" min="0" step="0.01"></div>
+                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.discountPerc}" onchange="CartApp.updateField('${c.barcode}', 'discountPerc', this.value)" min="0" max="100" step="0.01"></div>
+                    <div style="flex: 1; font-weight:bold; text-align:right;">₹${net.toFixed(2)}</div>
+                    <div style="width: 25px; text-align:right;"><button class="btn-del" onclick="CartApp.removeItem('${c.barcode}')">×</button></div>
                 </li>
             `;
         });
 
-        // Bill Discount
         const bType = document.getElementById('billDiscountType').value;
         const bVal = parseFloat(document.getElementById('billDiscountValue').value) || 0;
         let billDisAmt = bType === 'Amt' ? bVal : subtotal * (bVal / 100);
@@ -163,9 +161,10 @@ const CartApp = {
         const finalPayable = Math.round(netBeforeRound);
         const roundOff = finalPayable - netBeforeRound;
 
+        document.getElementById('cartQtySummary').innerText = `${totalItems} Qty (${this.items.length} Types)`;
         document.getElementById('cartSubtotal').innerText = `₹${subtotal.toFixed(2)}`;
-        const roColor = roundOff > 0 ? 'var(--success)' : (roundOff < 0 ? 'var(--danger)' : 'var(--text-muted)');
-        document.getElementById('cartRoundOff').innerHTML = `<span style="color: ${roColor};">${roundOff > 0 ? '+' : ''}${roundOff.toFixed(2)}</span>`;
+        
+        document.getElementById('cartRoundOff').innerText = `${roundOff > 0 ? '+' : ''}${roundOff.toFixed(2)}`;
         document.getElementById('cartGrandTotal').innerText = `₹${Math.max(0, finalPayable).toFixed(2)}`;
         
         if(document.getElementById('paymentModal').classList.contains('active')) this.calcSplitPay();
@@ -266,21 +265,19 @@ const CartApp = {
         document.getElementById('prTotal').innerText = totalAmt.toFixed(2);
         document.getElementById('printWrapper').classList.add('active');
         
-        // Auto trigger print dialogue as per the ERP schema
         setTimeout(() => window.print(), 300);
     },
     closePrintAndReset() {
         document.getElementById('printWrapper').classList.remove('active');
         this.items = [];
-        document.getElementById('posCustomer').value = '';
+        document.getElementById('posCustomer').value = 'Cash Walk-in';
         document.getElementById('posMobile').value = '';
         document.getElementById('billDiscountValue').value = '0';
         this.render();
-        InventoryApp.sync(); // Update stock visually
+        InventoryApp.sync();
     }
 };
 
-// Listeners
 document.getElementById('posSearch').addEventListener('input', () => InventoryApp.filterItems());
 document.getElementById('filterCategory').addEventListener('change', () => InventoryApp.filterItems());
 document.getElementById('filterBrand').addEventListener('change', () => InventoryApp.filterItems());
