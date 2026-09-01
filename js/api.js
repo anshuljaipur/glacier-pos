@@ -45,4 +45,17 @@ const API = {
         // We do not split/join by slash here as per your original ice cream formatting logic
         return `https://www.appsheet.com/template/gettablefileurl?appName=${icAppName}&tableName=${icTableName}&fileName=${url}`;
     }
+
+    async createItem(payload) {
+        try {
+            const targetUrl = `${CONFIG.API_URL}?action=createItem&data=${encodeURIComponent(JSON.stringify(payload))}`;
+            const res = await fetch(targetUrl);
+            const data = await res.json();
+            if(data && data.success === false) throw new Error(data.message || 'Failed to create item');
+            return data;
+        } catch (error) {
+            console.error("Create Item Error:", error);
+            throw error;
+        }
+    },
 };
