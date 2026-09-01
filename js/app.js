@@ -265,7 +265,11 @@ const CartApp = {
         else if (balance < 0) { lbl.innerText = "Change"; lbl.style.color = "var(--success)"; box.style.color = "var(--success)"; box.value = Math.abs(balance).toFixed(2); } 
         else { lbl.innerText = "Settled"; lbl.style.color = "var(--text-main)"; box.style.color = "var(--text-main)"; box.value = "0.00"; }
     },
+   isCheckingOut: false,
     async checkout() {
+        if (this.isCheckingOut) return; // Prevent double clicks hanging the UI
+        this.isCheckingOut = true;
+        
         const btn = document.getElementById('btn-save-sale');
         btn.textContent = 'Processing...';
         btn.disabled = true;
@@ -298,6 +302,7 @@ const CartApp = {
         } catch (error) {
             alert('Checkout failed: ' + error.message);
         } finally {
+            this.isCheckingOut = false;
             btn.textContent = 'SAVE & PRINT';
             btn.disabled = false;
         }
