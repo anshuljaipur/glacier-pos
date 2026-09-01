@@ -10,6 +10,20 @@ const API = {
             throw error;
         }
     },
+
+     async createItem(payload) {
+        try {
+            const targetUrl = `${CONFIG.API_URL}?action=createItem&data=${encodeURIComponent(JSON.stringify(payload))}`;
+            const res = await fetch(targetUrl);
+            const data = await res.json();
+            if(data && data.success === false) throw new Error(data.message || 'Failed to create item');
+            return data;
+        } catch (error) {
+            console.error("Create Item Error:", error);
+            throw error;
+        }
+    },
+    
     async saveSale(payload) {
         try {
             const targetUrl = `${CONFIG.API_URL}?action=saveSale&data=${encodeURIComponent(JSON.stringify(payload))}`;
@@ -46,16 +60,5 @@ const API = {
         return `https://www.appsheet.com/template/gettablefileurl?appName=${icAppName}&tableName=${icTableName}&fileName=${url}`;
     }
 
-    async createItem(payload) {
-        try {
-            const targetUrl = `${CONFIG.API_URL}?action=createItem&data=${encodeURIComponent(JSON.stringify(payload))}`;
-            const res = await fetch(targetUrl);
-            const data = await res.json();
-            if(data && data.success === false) throw new Error(data.message || 'Failed to create item');
-            return data;
-        } catch (error) {
-            console.error("Create Item Error:", error);
-            throw error;
-        }
-    },
+   
 };
