@@ -145,3 +145,15 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
     /* Explicitly hide buttons in the print view */
     .no-print { display: none !important; }
 }
+
+/* Out of Stock Item Cards */
+.item-card.oos-card {
+    opacity: 0.4;
+    filter: grayscale(100%);
+    cursor: not-allowed;
+}
+.item-card.oos-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border);
+}
