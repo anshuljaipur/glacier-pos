@@ -291,3 +291,90 @@ window.onload = () => {
     InventoryApp.sync();
     document.getElementById('posSearch').focus();
 };
+
+// --- NEW ITEM / QUICK ADD LOGIC ---
+
+// Map Alt+C shortcut to open modal
+document.addEventListener('keydown', (e) => {
+    if (e.altKey && e.code === 'KeyC') {
+        e.preventDefault();
+        openQuickAdd();
+    }
+});
+
+function openQuickAdd() {
+    // Populate auto-complete dropdowns
+    const cats = [...new Set(InventoryApp.products.map(p => p.category))].filter(Boolean);
+    const brands = [...new Set(InventoryApp.products.map(p => p.brandname))].filter(Boolean);
+    document.getElementById('qCatList').innerHTML = cats.map(c => `<option value="${c}">`).join('');
+    document.getElementById('qBrandList').innerHTML = brands.map(b => `<option value="${b}">`).join('');
+    
+    document.getElementById('quickAddModal').classList.add('active');
+    setTimeout(() => document.getElementById('qBarcode').focus(), 50);
+}
+
+function toggleItemFields() {
+    const target = document.getElementById('qTarget').value;
+    if(target === 'icecream') {
+        document.getElementById('fields-grocery').style.display = 'none';
+        document.getElementById('fields-icecream').style.display = 'flex';
+    } else {
+        document.getElementById('fields-grocery').style.display = 'flex';
+        document.getElementById('fields-icecream').style.display = 'none';
+    }
+}
+
+async function saveNewItem() {
+    const target = document.getElementById('qTarget').value;
+    const name = document.getElementById('qName').value.trim();
+    const price = document.getElementById('qPrice').value;
+
+    if(!name || !price) {
+        alert("Item Name and Selling Rate are mandatory.");
+        return;
+    }
+
+    const btn = document.getElementById('btn-save-item');
+    btn.textContent = "⏳ SAVING...";
+    btn.disabled = true;
+
+    const payload = {
+        target: target,
+        barcode: document.getElementById('qBarcode').value.trim(),
+        name: name,
+        category: document.getElementById('qCategory').value.trim(),
+        brand: document.getElementById('qBrand').value.trim(),
+        mrp: document.getElementById('qMRP').value,
+        price: price,
+        image: document.getElementById('qImage').value.trim()
+    };
+
+    if(target === 'grocery') {
+        payload.quantity = document.getElementById('qQty').value || 0;
+        payload.moq = document.getElementById('qMOQ').value || 1;
+    } else {
+        payload.available = document.getElementById('qAvailable').value;
+        payload.launchingyear = document.getElementById('qLaunchYear').value;
+        payload.tags = document.getElementById('qTags').value;
+        payload.description = document.getElementById('qDesc').value;
+        payload.ingredients = document.getElementById('qIng').value;
+    }
+
+    try {
+        await API.createItem(payload);
+        document.getElementById('quickAddModal').classList.remove('active');
+        
+        // Clear all inputs for the next entry
+        ['qBarcode', 'qName', 'qCategory', 'qBrand', 'qMRP', 'qPrice', 'qImage', 'qQty', 'qLaunchYear', 'qTags', 'qDesc', 'qIng'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+        
+        alert("Item added successfully!");
+        InventoryApp.sync(); // Refresh to pull down the newly added item
+    } catch(e) {
+        alert("Failed to save item: " + e.message);
+    } finally {
+        btn.textContent = "💾 ADD TO DATABASE";
+        btn.disabled = false;
+    }
+}
