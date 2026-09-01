@@ -324,7 +324,11 @@ function toggleItemFields() {
     }
 }
 
+let isSavingItem = false;
+
 async function saveNewItem() {
+    if (isSavingItem) return; // Prevent double-clicks
+    
     const target = document.getElementById('qTarget').value;
     const name = document.getElementById('qName').value.trim();
     const price = document.getElementById('qPrice').value;
@@ -334,9 +338,14 @@ async function saveNewItem() {
         return;
     }
 
+    isSavingItem = true;
     const btn = document.getElementById('btn-save-item');
     btn.textContent = "⏳ SAVING...";
     btn.disabled = true;
+    
+    // Immediately hide the modal so the user can't interact with it while saving
+    document.getElementById('quickAddModal').classList.remove('active');
+    document.getElementById('network-status').textContent = "↻ Syncing New Item...";
 
     const payload = {
         target: target,
@@ -354,7 +363,7 @@ async function saveNewItem() {
         payload.moq = document.getElementById('qMOQ').value || 1;
     } else {
         payload.available = document.getElementById('qAvailable').value;
-        payload.launchingyear = document.getElementById('qLaunchYear').value;
+        payload.launchingyear = document.getElementById('qLaunchYear').value; // Will send "YYYY-MM"
         payload.tags = document.getElementById('qTags').value;
         payload.description = document.getElementById('qDesc').value;
         payload.ingredients = document.getElementById('qIng').value;
@@ -362,18 +371,21 @@ async function saveNewItem() {
 
     try {
         await API.createItem(payload);
-        document.getElementById('quickAddModal').classList.remove('active');
         
         // Clear all inputs for the next entry
         ['qBarcode', 'qName', 'qCategory', 'qBrand', 'qMRP', 'qPrice', 'qImage', 'qQty', 'qLaunchYear', 'qTags', 'qDesc', 'qIng'].forEach(id => {
-            document.getElementById(id).value = '';
+            if(document.getElementById(id)) document.getElementById(id).value = '';
         });
         
+        // Force a full synchronous refresh of the grid
+        await InventoryApp.sync(); 
+        
         alert("Item added successfully!");
-        InventoryApp.sync(); // Refresh to pull down the newly added item
     } catch(e) {
         alert("Failed to save item: " + e.message);
+        document.getElementById('network-status').textContent = "⚠ Offline Mode";
     } finally {
+        isSavingItem = false;
         btn.textContent = "💾 ADD TO DATABASE";
         btn.disabled = false;
     }
