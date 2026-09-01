@@ -21,10 +21,13 @@
             <div class="pos-layout">
                 <!-- Left Panel: Search, Filters, Grid -->
                 <div class="grid-area">
-                    <div class="search-row">
-    <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
-    <button class="btn btn-primary btn-new-item" onclick="openQuickAdd()">+ New Item (Alt+C)</button>
-</div>
+                   <div class="search-row">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
+                            <button id="searchClearBtn" class="btn-clear-search" onclick="InventoryApp.clearFilters()" title="Clear Search & Filters">✖ CLEAR</button>
+                        </div>
+                        <button class="btn btn-primary btn-new-item" onclick="openQuickAdd()">+ New Item (Alt+C)</button>
+                    </div>
                     
                     <div class="filter-bar">
                         <span class="filter-label">FILTERS:</span>
