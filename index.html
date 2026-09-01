@@ -232,7 +232,7 @@
             </div>
 
             <!-- ICE CREAM SPECIFIC FIELDS -->
-            <div id="fields-icecream" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+          <div id="fields-icecream" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 1;">
                         <label style="font-size: 12px; color: var(--text-muted);">Available</label>
@@ -242,8 +242,9 @@
                         </select>
                     </div>
                     <div style="flex: 1;">
-                        <label style="font-size: 12px; color: var(--text-muted);">Launch Year</label>
-                        <input type="text" id="qLaunchYear" class="filter-input" style="width: 100%;" placeholder="e.g. 2024">
+                        <label style="font-size: 12px; color: var(--text-muted);">Launch Year & Month</label>
+                        <!-- CHANGED to type="month" for native date picker -->
+                        <input type="month" id="qLaunchYear" class="filter-input" style="width: 100%; font-family: inherit;">
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px;">
