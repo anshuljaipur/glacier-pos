@@ -24,15 +24,31 @@ const API = {
         }
     },
     
-    async saveSale(payload) {
+async saveSale(payload) {
         try {
-            const targetUrl = `${CONFIG.API_URL}?action=saveSale&data=${encodeURIComponent(JSON.stringify(payload))}`;
-            const res = await fetch(targetUrl);
+            const res = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'saveSale', payload: payload })
+            });
             const data = await res.json();
-            if(!data.success) throw new Error(data.message || 'Failed to save sale');
+            if(data && data.success === false) throw new Error(data.message || 'Failed to save sale');
             return data;
         } catch (error) {
             console.error("Save Sale Error:", error);
+            throw error;
+        }
+    },
+    async createItem(payload) {
+        try {
+            const res = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'createItem', payload: payload })
+            });
+            const data = await res.json();
+            if(data && data.success === false) throw new Error(data.message || 'Failed to create item');
+            return data;
+        } catch (error) {
+            console.error("Create Item Error:", error);
             throw error;
         }
     },
