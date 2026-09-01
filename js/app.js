@@ -71,18 +71,26 @@ const InventoryApp = {
         brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
     },
 
-    clearFilters() {
+   clearFilters() {
         document.getElementById('posSearch').value = '';
         document.getElementById('filterCategory').value = '';
         document.getElementById('filterBrand').value = '';
         this.filterItems();
+        document.getElementById('posSearch').focus(); // Return cursor to search bar immediately
     },
 
     filterItems() {
         // Smart Search: split search query into individual lowercase words
-        const queryWords = document.getElementById('posSearch').value.toLowerCase().split(/\s+/).filter(Boolean);
+        const rawQuery = document.getElementById('posSearch').value;
+        const queryWords = rawQuery.toLowerCase().split(/\s+/).filter(Boolean);
         const cat = document.getElementById('filterCategory').value;
         const brand = document.getElementById('filterBrand').value;
+        
+        // Toggle the visibility of the new big Clear button
+        const clearBtn = document.getElementById('searchClearBtn');
+        if (clearBtn) {
+            clearBtn.style.display = (rawQuery !== '' || cat !== '' || brand !== '') ? 'block' : 'none';
+        }
         
         this.filteredProducts = this.products.filter(p => {
             // Combine all searchable text
