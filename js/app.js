@@ -29,8 +29,13 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// --- INVENTORY & SMART SEARCH LOGIC ---
 const InventoryApp = {
     products: [],
+    filteredProducts: [],
+    displayCount: 0,
+    chunkSize: 40,
+
     async sync() {
         try {
             const btn = document.getElementById('network-status');
@@ -38,11 +43,25 @@ const InventoryApp = {
             this.products = await API.getInventory();
             btn.textContent = "↻ Sync Data";
             this.populateFilters();
-            this.renderGrid(this.products);
+            this.filterItems(); 
         } catch (err) {
             document.getElementById('network-status').textContent = "⚠ Offline Mode";
         }
     },
+
+    initScroll() {
+        // Infinite scrolling event listener
+        const grid = document.getElementById('itemGrid');
+        grid.addEventListener('scroll', () => {
+            // If the user scrolls within 300px of the bottom, load the next chunk
+            if (grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 300) {
+                if (this.displayCount < this.filteredProducts.length) {
+                    this.loadMoreItems();
+                }
+            }
+        });
+    },
+
     populateFilters() {
         const cats = [...new Set(this.products.map(p => p.category))].filter(Boolean);
         const brands = [...new Set(this.products.map(p => p.brandname))].filter(Boolean);
@@ -51,39 +70,71 @@ const InventoryApp = {
         catSelect.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
         brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
     },
+
     clearFilters() {
         document.getElementById('posSearch').value = '';
         document.getElementById('filterCategory').value = '';
         document.getElementById('filterBrand').value = '';
         this.filterItems();
     },
+
     filterItems() {
-        const query = document.getElementById('posSearch').value.toLowerCase();
+        // Smart Search: split search query into individual lowercase words
+        const queryWords = document.getElementById('posSearch').value.toLowerCase().split(/\s+/).filter(Boolean);
         const cat = document.getElementById('filterCategory').value;
         const brand = document.getElementById('filterBrand').value;
         
-        const filtered = this.products.filter(p => {
-            const matchSearch = p.itemname.toLowerCase().includes(query) || (p.barcode && p.barcode.toString().toLowerCase().includes(query));
+        this.filteredProducts = this.products.filter(p => {
+            // Combine all searchable text
+            const searchString = `${p.itemname} ${p.barcode || ''} ${p.brandname || ''} ${p.category || ''}`.toLowerCase();
+            
+            // Item must contain EVERY word typed in the search box, regardless of order
+            const matchSearch = queryWords.every(word => searchString.includes(word));
+            
             const matchCat = cat === '' || p.category === cat;
             const matchBrand = brand === '' || p.brandname === brand;
+            
             return matchSearch && matchCat && matchBrand;
         });
-        this.renderGrid(filtered);
+
+        // Sorting: In-stock items first, 0 stock items at the very bottom
+        this.filteredProducts.sort((a, b) => {
+            const stockA = parseFloat(a.quantity) || 0;
+            const stockB = parseFloat(b.quantity) || 0;
+            const isOosA = stockA <= 0 ? 1 : 0;
+            const isOosB = stockB <= 0 ? 1 : 0;
+
+            if (isOosA !== isOosB) return isOosA - isOosB; // 0 goes first, 1 goes last
+            return a.itemname.localeCompare(b.itemname); // Alphabetical fallback
+        });
+
+        // Reset grid and load first chunk
+        this.displayCount = 0;
+        document.getElementById('itemGrid').innerHTML = '';
+        this.loadMoreItems();
     },
-    renderGrid(data) {
+
+    loadMoreItems() {
         const grid = document.getElementById('itemGrid');
-        grid.innerHTML = '';
-        data.forEach(p => {
+        const toLoad = this.filteredProducts.slice(this.displayCount, this.displayCount + this.chunkSize);
+
+        toLoad.forEach(p => {
             const stock = parseFloat(p.quantity) || 0;
             const rate = parseFloat(p.sellingrate) || 0;
-            const safeName = p.itemname.replace(/"/g, '&quot;');
+            const isOOS = stock <= 0;
             
-            let badgeClass = stock <= 0 ? 'stock-badge low' : 'stock-badge';
+            let badgeClass = isOOS ? 'stock-badge low' : 'stock-badge';
             
             const card = document.createElement('button');
-            card.className = 'item-card';
+            card.className = `item-card ${isOOS ? 'oos-card' : ''}`;
             card.type = 'button';
-            card.onclick = () => CartApp.addItem(p);
+            
+            // Disable 0 stock items from being clicked
+            if (isOOS) {
+                card.disabled = true;
+            } else {
+                card.onclick = () => CartApp.addItem(p);
+            }
             
             card.innerHTML = `
                 <div class="${badgeClass}">${stock}</div>
@@ -97,7 +148,16 @@ const InventoryApp = {
             `;
             grid.appendChild(card);
         });
+
+        this.displayCount += toLoad.length;
     }
+};
+
+// --- INITIALIZATION ---
+window.onload = () => {
+    InventoryApp.initScroll();
+    InventoryApp.sync();
+    document.getElementById('posSearch').focus();
 };
 
 const CartApp = {
