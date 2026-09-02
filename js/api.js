@@ -11,6 +11,21 @@ const API = {
         }
     },
 
+    async inwardStock(payload) {
+        try {
+            const res = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'inwardStock', payload: payload })
+            });
+            const data = await res.json();
+            if(data && data.success === false) throw new Error(data.message || 'Failed to inward stock');
+            return data;
+        } catch (error) {
+            console.error("Inward Error:", error);
+            throw error;
+        }
+    },
+    
      async createItem(payload) {
         try {
             const targetUrl = `${CONFIG.API_URL}?action=createItem&data=${encodeURIComponent(JSON.stringify(payload))}`;
