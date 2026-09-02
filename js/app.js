@@ -252,6 +252,10 @@ const CartApp = {
             });
         }
         this.render();
+        
+        // NEW: Force focus back to search bar instantly after clicking an item
+        const searchBox = document.getElementById('posSearch');
+        if (searchBox) searchBox.focus();
     },
     updateField(index, field, val) {
         const item = this.items[index];
