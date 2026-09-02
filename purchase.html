@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLACIER ERP - Purchase (Inward)</title>
+    <link rel="stylesheet" href="css/pos.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Unified Navigation Bar -->
+        <header class="topbar no-print">
+            <div class="topbar-brand">GLACIER ERP <span style="font-size: 12px; font-weight: normal; color: #9ca3af; margin-left: 10px;">Purchase (Inward)</span></div>
+            <div class="topbar-actions" style="display: flex; gap: 10px;">
+                <button onclick="window.location.href='index.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">🛒 POS</button>
+                <button onclick="window.location.href='purchase.html'" class="btn" style="background: #3b82f6; border: 1px solid #2563eb; color: white;">📦 Purchase</button>
+                <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
+                <button onclick="InventoryApp.sync()" class="btn btn-sync" id="network-status">↻ Sync Data</button>
+            </div>
+        </header>
+
+        <main class="main-content no-print">
+            <div class="pos-layout">
+                <!-- Left Panel: Grid -->
+                <div class="grid-area">
+                    <div class="search-row">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
+                            <button id="searchClearBtn" class="btn-clear-search" onclick="InventoryApp.clearFilters()">✖ CLEAR</button>
+                        </div>
+                        <button class="btn btn-primary btn-new-item" onclick="openQuickAdd()">+ New Item</button>
+                    </div>
+                    
+                    <div class="filter-bar">
+                        <span class="filter-label">FILTERS:</span>
+                        <select id="filterCategory" class="filter-input"><option value="">All Categories</option></select>
+                        <select id="filterBrand" class="filter-input"><option value="">All Brands</option></select>
+                        <input type="number" id="filterMinPrice" class="filter-input input-small" placeholder="Min ₹">
+                        <span class="filter-label" style="font-weight:normal;">to</span>
+                        <input type="number" id="filterMaxPrice" class="filter-input input-small" placeholder="Max ₹">
+                    </div>
+                    
+                    <div id="tagFilters" class="tags-container" style="display: none;"></div>
+
+                    <div class="item-grid" id="itemGrid"></div>
+                </div>
+
+                <!-- Right Panel: Purchase Invoice -->
+                <div class="cart-area">
+                    <div class="cart-tabs">
+                        <button class="cart-tab active" style="background: #fee2e2; color: #991b1b;">Purchase Invoice</button>
+                    </div>
+
+                    <div class="cart-header-inputs">
+                        <div class="flex-row">
+                            <input type="text" id="posCustomer" class="cart-input-field" style="flex: 1.5;" placeholder="Supplier Name">
+                            <input type="text" id="posMobile" class="cart-input-field" style="flex: 1;" placeholder="Invoice Ref / Bill No.">
+                        </div>
+                    </div>
+
+                    <div class="cart-table">
+                        <div class="cart-table-header" style="background: #991b1b;">
+                            <div style="flex: 2;">Item</div>
+                            <div style="flex: 0.8; text-align: center;">Qty</div>
+                            <div style="flex: 1; text-align: right;">Pur. Rate</div>
+                            <div style="flex: 0.8; text-align: right;">Dis%</div>
+                            <div style="flex: 1; text-align: right;">Total</div>
+                            <div style="width: 25px;"></div>
+                        </div>
+                        <ul class="cart-items" id="cartBody"></ul>
+                    </div>
+                    
+                    <div class="cart-totals">
+                        <div class="totals-row border-dashed">
+                            <span class="text-muted">Inward Quantities:</span>
+                            <span id="cartQtySummary" style="font-weight: 600; color: #991b1b;">0 Qty (0 Types)</span>
+                        </div>
+                        <div class="totals-row">
+                            <span class="text-muted">Subtotal:</span>
+                            <span id="cartSubtotal" style="font-weight: bold;">₹0.00</span>
+                        </div>
+                        <div class="totals-row">
+                            <span class="text-muted" style="display: flex; align-items: center; gap: 5px;">
+                                Bill Discount:
+                                <select id="billDiscountType" class="filter-input" style="padding: 2px;">
+                                    <option value="Amt">₹</option>
+                                    <option value="Perc">%</option>
+                                </select>
+                            </span>
+                            <input type="number" id="billDiscountValue" class="filter-input" value="0" style="width: 80px; text-align: right;" min="0" step="0.01">
+                        </div>
+                        <div class="totals-row border-bottom" style="padding-bottom: 10px;">
+                            <span class="text-muted" style="font-size: 12px;">Round Off (Auto):</span>
+                            <span id="cartRoundOff" style="font-weight: bold; font-size: 12px;">0.00</span>
+                        </div>
+                        <div class="totals-row" style="margin-top: 5px; align-items: baseline;">
+                            <span style="font-size: 16px; font-weight: 700; color: #991b1b;">Total Cost:</span>
+                            <span id="cartGrandTotal" class="grand-total" style="color: #991b1b;">₹0.00</span>
+                        </div>
+                        <button id="checkoutBtn" class="btn btn-checkout" style="background: #dc2626;" onclick="CartApp.openPaymentPopup()">💾 SAVE PURCHASE (F4)</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Multi-Payment Checkout Modal -->
+    <div id="paymentModal" class="modal-overlay no-print">
+        <div class="modal-box">
+            <div class="modal-header"><span>Complete Purchase Entry</span></div>
+            <div style="background: #fef2f2; padding: 20px; text-align: center; border-radius: 8px; border: 2px solid #ef4444; margin-bottom: 20px;">
+                <div style="font-size: 12px; font-weight: bold; color: #991b1b; text-transform: uppercase;">Amount Paid</div>
+                <div id="payModalTotal" style="font-size: 36px; font-weight: 900; color: #dc2626;">₹0.00</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="width: 80px; font-weight: bold;">Cash</label>
+                    <input type="number" id="payCash" class="filter-input" style="flex: 1; font-size: 18px; font-weight: bold; color: var(--success);" placeholder="0">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="width: 80px; font-weight: bold;">UPI</label>
+                    <input type="number" id="payUPI" class="filter-input" style="flex: 1; font-size: 18px;" placeholder="0">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="width: 80px; font-weight: bold;">Account</label>
+                    <input type="number" id="payCard" class="filter-input" style="flex: 1; font-size: 18px;" placeholder="0">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
+                    <label id="lblBalance" style="width: 80px; font-weight: bold; color: var(--danger);">Balance</label>
+                    <input type="text" id="payBalance" class="filter-input" style="flex: 1; font-size: 20px; font-weight: bold; background: #f9fafb;" disabled value="0.00">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-danger-outline" style="flex: 1; padding: 15px; font-weight: bold;" onclick="CartApp.closePaymentPopup()">Cancel (Esc)</button>
+                <button class="btn btn-success" id="btn-save-sale" style="flex: 2; font-size: 18px; padding: 15px; font-weight: bold;" onclick="CartApp.checkout()">SAVE PURCHASE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Quick Add Modal to support + New Item button -->
+    <div id="quickAddModal" class="modal-overlay no-print"><div class="modal-box" style="width: 500px;"><div class="modal-header"><span>➕ Add Master Item</span><span class="close-modal-icon" onclick="document.getElementById('quickAddModal').classList.remove('active')" style="cursor:pointer; font-size: 20px;">×</span></div><div style="margin-bottom: 15px;"><label style="font-weight: bold; font-size: 12px; color: var(--text-muted);">TARGET DATABASE</label><select id="qTarget" class="filter-input" style="width: 100%; font-weight: bold; border-color: var(--primary);" onchange="toggleItemFields()"><option value="grocery">🛒 Grocery Store</option><option value="icecream">🍦 Ice Cream Menu</option></select></div><div style="display: flex; gap: 10px; margin-bottom: 10px;"><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Barcode</label><input type="text" id="qBarcode" class="filter-input" style="width: 100%;"></div><div style="flex: 2;"><label style="font-size: 12px; color: var(--text-muted);">Item Name *</label><input type="text" id="qName" class="filter-input" style="width: 100%;"></div></div><div style="display: flex; gap: 10px; margin-bottom: 10px;"><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Category</label><input type="text" id="qCategory" class="filter-input" style="width: 100%;" list="qCatList"><datalist id="qCatList"></datalist></div><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Brand</label><input type="text" id="qBrand" class="filter-input" style="width: 100%;" list="qBrandList"><datalist id="qBrandList"></datalist></div></div><div style="display: flex; gap: 10px; margin-bottom: 10px;"><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">MRP (₹)</label><input type="number" id="qMRP" class="filter-input" style="width: 100%;" min="0"></div><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Selling Rate (₹) *</label><input type="number" id="qPrice" class="filter-input" style="width: 100%;" min="0"></div></div><div style="margin-bottom: 10px;"><label style="font-size: 12px; color: var(--text-muted);">Image Reference (File Path or AppSheet Link)</label><input type="text" id="qImage" class="filter-input" style="width: 100%;" placeholder="e.g. Products_Images/item.jpg"></div><div id="fields-grocery" style="display: flex; gap: 10px; margin-bottom: 10px;"><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Opening Stock Qty</label><input type="number" id="qQty" class="filter-input" style="width: 100%;" value="0"></div><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Min. Order Qty (MOQ)</label><input type="number" id="qMOQ" class="filter-input" style="width: 100%;" value="1"></div></div><div id="fields-icecream" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 10px;"><div style="display: flex; gap: 10px;"><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Available</label><select id="qAvailable" class="filter-input" style="width: 100%;"><option value="yes">Yes</option><option value="no">No</option></select></div><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Launch Year & Month</label><input type="month" id="qLaunchYear" class="filter-input" style="width: 100%; font-family: inherit;"></div></div><div style="display: flex; gap: 10px;"><div style="flex: 1;"><label style="font-size: 12px; color: var(--text-muted);">Tags</label><input type="text" id="qTags" class="filter-input" style="width: 100%;" placeholder="Vegan, SugarFree"></div></div><div><label style="font-size: 12px; color: var(--text-muted);">Description</label><input type="text" id="qDesc" class="filter-input" style="width: 100%;"></div><div><label style="font-size: 12px; color: var(--text-muted);">Ingredients</label><input type="text" id="qIng" class="filter-input" style="width: 100%;"></div></div><button class="btn btn-success" id="btn-save-item" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold; margin-top: 15px;" onclick="saveNewItem()">💾 ADD TO DATABASE</button></div></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Override standard CartApp methods specifically for Purchases
+        CartApp.addItem = function(product) {
+            const existing = this.items.find(i => i.barcode === product.barcode && i.itemName === product.itemname);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                this.items.push({
+                    barcode: product.barcode,
+                    itemName: product.itemname,
+                    qty: 1,
+                    // USE PURCHASE RATE INSTEAD OF SELLING RATE
+                    rate: parseFloat(product.purchaserate) || 0,
+                    discountPerc: 0
+                });
+            }
+            this.render();
+        };
+
+        CartApp.checkout = async function() {
+            if (this.isCheckingOut) return; 
+            this.isCheckingOut = true;
+            
+            const btn = document.getElementById('btn-save-sale');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+
+            const cash = parseFloat(document.getElementById('payCash').value) || 0;
+            const upi = parseFloat(document.getElementById('payUPI').value) || 0;
+            const card = parseFloat(document.getElementById('payCard').value) || 0;
+            let modes = [];
+            if(cash > 0) modes.push('Cash');
+            if(upi > 0) modes.push('UPI');
+            if(card > 0) modes.push('Account');
+            
+            const payload = {
+                invoiceNo: 'PUR-' + Date.now().toString().slice(-6),
+                customer: document.getElementById('posCustomer').value || 'Supplier',
+                paymentMode: modes.length > 1 ? 'Split' : (modes[0] || 'Account'),
+                items: this.items.map(i => ({
+                    barcode: i.barcode,
+                    itemName: i.itemName,
+                    quantity: i.qty,
+                    rate: i.rate,
+                    discount: (i.qty * i.rate) * (i.discountPerc / 100),
+                    amount: (i.rate * i.qty) - ((i.qty * i.rate) * (i.discountPerc / 100))
+                }))
+            };
+
+            try {
+                // CALL SAVEPURCHASE INSTEAD OF SAVESALE
+                await API.savePurchase(payload);
+                document.getElementById('paymentModal').classList.remove('active');
+                
+                this.items = [];
+                document.getElementById('posCustomer').value = '';
+                document.getElementById('posMobile').value = '';
+                document.getElementById('billDiscountValue').value = '0';
+                this.render();
+                
+                alert('Purchase saved and stock added!');
+                InventoryApp.sync();
+            } catch (error) {
+                alert('Purchase failed: ' + error.message);
+            } finally {
+                this.isCheckingOut = false;
+                btn.textContent = 'SAVE PURCHASE';
+                btn.disabled = false;
+            }
+        };
+        
+        // Remove 'Out of Stock' visual lock for Purchases (You CAN buy items that have 0 stock)
+        InventoryApp.loadMoreItems = function() {
+            const grid = document.getElementById('itemGrid');
+            if(!grid) return;
+
+            const existingBtn = document.getElementById('inlineLoadMoreBtn');
+            if(existingBtn) existingBtn.remove();
+
+            const toLoad = this.filteredProducts.slice(this.displayCount, this.displayCount + this.chunkSize);
+
+            toLoad.forEach(p => {
+                const stock = parseFloat(p.quantity) || 0;
+                // Display purchase rate instead of selling rate in grid
+                const rate = parseFloat(p.purchaserate) || 0; 
+                
+                const card = document.createElement('button');
+                card.className = `item-card`;
+                card.type = 'button';
+                card.onclick = () => CartApp.addItem(p); 
+                
+                card.innerHTML = `
+                    <div class="stock-badge">${stock}</div>
+                    <div class="item-img">
+                        <img src="${API.resolveImage(p.image)}" class="item-img-tag" loading="lazy" onerror="this.src='${API.resolveImage('')}'">
+                    </div>
+                    <div class="item-details">
+                        <div class="item-name">${p.itemname}</div>
+                        <div class="item-price" style="color: #991b1b;">PP ₹${rate.toFixed(2)}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            this.displayCount += toLoad.length;
+
+            if (this.displayCount < this.filteredProducts.length) {
+                const btnContainer = document.createElement('div');
+                btnContainer.id = 'inlineLoadMoreBtn';
+                btnContainer.className = 'inline-load-more';
+                btnContainer.innerHTML = `<button class="btn-load-more" onclick="InventoryApp.loadMoreItems()">Load More Items ⬇</button>`;
+                grid.appendChild(btnContainer);
+            }
+        };
+    </script>
+</body>
+</html>
