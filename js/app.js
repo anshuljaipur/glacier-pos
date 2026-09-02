@@ -515,12 +515,39 @@ async function saveNewItem() {
 
 // --- INITIALIZATION ---
 window.onload = () => {
-    // Safely attach event listeners to inputs if they exist in the HTML
-    document.getElementById('posSearch')?.addEventListener('input', () => InventoryApp.filterItems());
+    // --- Search & Barcode Scanner Events ---
+    const searchBox = document.getElementById('posSearch');
+    if (searchBox) {
+        searchBox.addEventListener('input', () => InventoryApp.filterItems());
+        
+        // Intercept Barcode Scanner's "Enter" key
+        searchBox.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent form submission
+                
+                const scanVal = searchBox.value.trim().toLowerCase();
+                if (!scanVal) return;
+                
+                // Find exact barcode match
+                const prod = InventoryApp.products.find(p => p.barcode && p.barcode.toString().trim().toLowerCase() === scanVal);
+                
+                if (prod) {
+                    CartApp.addItem(prod);
+                    searchBox.value = ''; // Clear search bar
+                    InventoryApp.filterItems(); // Reset grid visually
+                }
+                // Optional: You can add an else{} statement here to play an error beep if the barcode isn't found
+            }
+        });
+    }
+
+    // --- Standard Filter Events ---
     document.getElementById('filterCategory')?.addEventListener('change', () => InventoryApp.filterItems());
     document.getElementById('filterBrand')?.addEventListener('change', () => InventoryApp.filterItems());
     document.getElementById('filterMinPrice')?.addEventListener('input', () => InventoryApp.filterItems());
     document.getElementById('filterMaxPrice')?.addEventListener('input', () => InventoryApp.filterItems());
+    
+    // --- Cart & Payment Events ---
     document.getElementById('billDiscountValue')?.addEventListener('input', () => CartApp.render());
     document.getElementById('billDiscountType')?.addEventListener('change', () => CartApp.render());
     ['payCash', 'payUPI', 'payCard'].forEach(id => {
