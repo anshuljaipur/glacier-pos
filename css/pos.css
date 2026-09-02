@@ -177,16 +177,17 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
     border-color: var(--border);
 }
 
-/* Tags Filter Chips */
+/* Tags Container & Chips Fix */
 .tags-container {
     display: flex;
     gap: 8px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     overflow-x: auto;
-    padding-bottom: 5px;
-    scrollbar-width: none;
+    padding-bottom: 8px; /* Adds breathing room for the scrollbar */
+    scrollbar-width: thin;
 }
-.tags-container::-webkit-scrollbar { display: none; }
+.tags-container::-webkit-scrollbar { height: 6px; }
+.tags-container::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
 
 .tag-chip {
     padding: 6px 14px;
@@ -198,6 +199,7 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
     color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0; /* CRITICAL: Stops tags from squishing together */
     transition: all 0.2s ease;
 }
 .tag-chip:hover {
@@ -209,4 +211,29 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
     color: white;
     border-color: var(--primary);
     box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2);
+}
+
+/* Load More Button */
+.load-more-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 20px 0;
+    flex-shrink: 0;
+}
+.btn-load-more {
+    background: #eff6ff;
+    color: var(--primary);
+    border: 2px dashed var(--primary);
+    padding: 10px 30px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: var(--shadow-sm);
+}
+.btn-load-more:hover {
+    background: var(--primary);
+    color: var(--white);
 }
