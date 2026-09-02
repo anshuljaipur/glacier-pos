@@ -28,10 +28,14 @@
 <body>
     <div class="app-container">
         <!-- Top Navigation -->
+        <!-- Unified Navigation Bar -->
         <header class="topbar no-print">
-            <div class="topbar-brand">GLACIER ERP <span style="font-size: 12px; font-weight: normal; color: #9ca3af; margin-left: 10px;">Sales & Purchase Register</span></div>
+            <div class="topbar-brand">GLACIER ERP</div>
             <div class="topbar-actions" style="display: flex; gap: 10px;">
-                <a href="index.html" class="btn" style="background: #374151; color: white; text-decoration: none; display: flex; align-items: center;">⬅ Back to POS</a>
+                <button onclick="window.location.href='index.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">🛒 POS</button>
+                <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
+                <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
+                <button onclick="InventoryApp.sync()" class="btn btn-sync" id="network-status">↻ Sync Data</button>
             </div>
         </header>
 
