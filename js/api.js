@@ -33,14 +33,14 @@ const API = {
             payload.timestamp = firebase.firestore.FieldValue.serverTimestamp();
             payload.type = 'Sale';
             
-            // 1. Save to Firebase instantly
             const docRef = await db.collection('pos_vouchers').add(payload);
             
-            // 2. Update stock in Google Sheets silently in the background
-            fetch(CONFIG.API_URL, {
+            // AWAIT the fetch so the browser print window doesn't cancel it
+            await fetch(CONFIG.API_URL, {
                 method: 'POST',
+                redirect: 'follow',
                 body: JSON.stringify({ action: 'updateStock', payload: payload })
-            }).catch(e => console.error("Stock update failed", e));
+            });
 
             return { success: true, id: docRef.id };
         } catch (error) {
@@ -57,10 +57,12 @@ const API = {
             
             const docRef = await db.collection('pos_vouchers').add(payload);
 
-            fetch(CONFIG.API_URL, {
+            // AWAIT the fetch so the browser doesn't cancel it
+            await fetch(CONFIG.API_URL, {
                 method: 'POST',
+                redirect: 'follow',
                 body: JSON.stringify({ action: 'updateStockInward', payload: payload })
-            }).catch(e => console.error("Stock inward failed", e));
+            });
 
             return { success: true, id: docRef.id };
         } catch (error) {
