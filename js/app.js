@@ -497,68 +497,6 @@ async function saveNewItem() {
     }
 }
 
-// --- INWARD / PURCHASE LOGIC ---
-let selectedInwardItem = null;
-
-function openInwardModal() {
-    const datalist = document.getElementById('inwardItemList');
-    if(datalist) datalist.innerHTML = InventoryApp.products.map(p => `<option value="${p.itemname}">`).join('');
-    
-    ['inwardItemSearch', 'inwardSupplier'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ''; });
-    ['inwardCurrentStock', 'inwardAddQty', 'inwardPurchaseRate'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = '0'; });
-    selectedInwardItem = null;
-
-    document.getElementById('inwardModal').classList.add('active');
-    setTimeout(() => document.getElementById('inwardItemSearch')?.focus(), 50);
-}
-
-function handleInwardSelection() {
-    const searchVal = document.getElementById('inwardItemSearch').value;
-    selectedInwardItem = InventoryApp.products.find(p => p.itemname === searchVal);
-    
-    if (selectedInwardItem) {
-        document.getElementById('inwardCurrentStock').value = selectedInwardItem.quantity || 0;
-    } else {
-        document.getElementById('inwardCurrentStock').value = '0';
-    }
-}
-
-async function saveInwardStock() {
-    if (!selectedInwardItem) return alert("Please select a valid product from the list.");
-    
-    const addQty = parseFloat(document.getElementById('inwardAddQty').value) || 0;
-    const purchaseRate = parseFloat(document.getElementById('inwardPurchaseRate').value) || 0;
-    const supplier = document.getElementById('inwardSupplier').value.trim();
-
-    if (addQty <= 0) return alert("Quantity to add must be greater than 0.");
-
-    const btn = document.getElementById('btn-save-inward');
-    btn.textContent = "⏳ UPDATING...";
-    btn.disabled = true;
-
-    const payload = {
-        barcode: selectedInwardItem.barcode,
-        itemName: selectedInwardItem.itemname,
-        addQty: addQty,
-        purchaseRate: purchaseRate,
-        supplier: supplier
-    };
-
-    try {
-        await API.inwardStock(payload);
-        document.getElementById('inwardModal').classList.remove('active');
-        const netStatus = document.getElementById('network-status');
-        if(netStatus) netStatus.textContent = "↻ Syncing Update...";
-        
-        alert("Stock updated successfully!");
-        await InventoryApp.sync(); 
-    } catch(e) {
-        alert("Failed to inward stock: " + e.message);
-    } finally {
-        btn.textContent = "💾 UPDATE STOCK";
-        btn.disabled = false;
-    }
-}
 
 // --- INITIALIZATION ---
 window.onload = () => {
