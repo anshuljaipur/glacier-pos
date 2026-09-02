@@ -10,11 +10,22 @@ const toTitleCase = (str) => {
 document.addEventListener('keydown', (e) => {
     if(e.key === 'F4') { e.preventDefault(); CartApp.openPaymentPopup(); return; }
     if (e.altKey && e.code === 'KeyC') { e.preventDefault(); openQuickAdd(); return; }
+    
+    // NEW: Alt+S focuses and selects text in the search bar
+    if (e.altKey && e.code === 'KeyS') { 
+        e.preventDefault(); 
+        const searchBox = document.getElementById('posSearch');
+        if(searchBox) { 
+            searchBox.focus(); 
+            searchBox.select(); 
+        }
+        return; 
+    }
+    
     if(e.key === 'Escape') { 
-        document.getElementById('paymentModal').classList.remove('active');
-        document.getElementById('quickAddModal').classList.remove('active');
-        document.getElementById('inwardModal').classList.remove('active');
-        if(document.getElementById('printWrapper').classList.contains('active')) {
+        document.getElementById('paymentModal')?.classList.remove('active');
+        document.getElementById('quickAddModal')?.classList.remove('active');
+        if(document.getElementById('printWrapper')?.classList.contains('active')) {
             CartApp.closePrintAndReset();
         }
         return; 
