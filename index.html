@@ -9,9 +9,11 @@
 <body>
     <div class="app-container">
         <!-- Top Navigation Bar (Replaces Sidebar) -->
+        <!-- Top Navigation Bar -->
         <header class="topbar no-print">
             <div class="topbar-brand">GLACIER ERP <span style="font-size: 12px; font-weight: normal; color: #9ca3af; margin-left: 10px;">Retail POS</span></div>
-            <div class="topbar-actions">
+            <div class="topbar-actions" style="display: flex; gap: 10px;">
+                <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
                 <button onclick="InventoryApp.sync()" class="btn btn-sync" id="network-status">↻ Sync Data</button>
             </div>
         </header>
