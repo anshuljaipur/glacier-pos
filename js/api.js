@@ -27,6 +27,21 @@ const API = {
         }
     },
 
+    async savePurchase(payload) {
+        try {
+            const res = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'savePurchase', payload: payload })
+            });
+            const data = await res.json();
+            if(data && data.success === false) throw new Error(data.message || 'Failed to save purchase');
+            return data;
+        } catch (error) {
+            console.error("Save Purchase Error:", error);
+            throw error;
+        }
+    },
+    
     async createItem(payload) {
         try {
             const res = await fetch(CONFIG.API_URL, {
