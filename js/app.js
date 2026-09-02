@@ -210,16 +210,25 @@ const InventoryApp = {
         });
 
         this.displayCount += toLoad.length;
+
+        // Toggle "Load More" button visibility
+        const loadMoreContainer = document.getElementById('loadMoreContainer');
+        if (loadMoreContainer) {
+            if (this.displayCount < this.filteredProducts.length) {
+                loadMoreContainer.style.display = 'flex';
+            } else {
+                loadMoreContainer.style.display = 'none';
+            }
+        }
     }
 };
 
 // --- INITIALIZATION ---
 window.onload = () => {
-    // Add event listeners for the Min/Max price inputs
     document.getElementById('filterMinPrice').addEventListener('input', () => InventoryApp.filterItems());
     document.getElementById('filterMaxPrice').addEventListener('input', () => InventoryApp.filterItems());
     
-    InventoryApp.initScroll();
+    // Removed initScroll() here
     InventoryApp.sync();
     document.getElementById('posSearch').focus();
 };
