@@ -29,18 +29,34 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// --- TITLE CASE HELPER ---
+const toTitleCase = (str) => {
+    if (!str) return '';
+    return String(str).toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+};
+
 // --- INVENTORY & SMART SEARCH LOGIC ---
 const InventoryApp = {
     products: [],
     filteredProducts: [],
     displayCount: 0,
     chunkSize: 40,
+    activeTag: '', // Tracks the currently clicked tag
 
     async sync() {
         try {
             const btn = document.getElementById('network-status');
             btn.textContent = "↻ Syncing...";
-            this.products = await API.getInventory();
+            const rawProducts = await API.getInventory();
+            
+            // Normalize all names, brands, and categories to Title Case
+            this.products = rawProducts.map(p => ({
+                ...p,
+                itemname: toTitleCase(p.itemname),
+                brandname: toTitleCase(p.brandname),
+                category: toTitleCase(p.category)
+            }));
+
             btn.textContent = "↻ Sync Data";
             this.populateFilters();
             this.filterItems(); 
@@ -50,10 +66,8 @@ const InventoryApp = {
     },
 
     initScroll() {
-        // Infinite scrolling event listener
         const grid = document.getElementById('itemGrid');
         grid.addEventListener('scroll', () => {
-            // If the user scrolls within 300px of the bottom, load the next chunk
             if (grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 300) {
                 if (this.displayCount < this.filteredProducts.length) {
                     this.loadMoreItems();
@@ -63,60 +77,102 @@ const InventoryApp = {
     },
 
     populateFilters() {
-        const cats = [...new Set(this.products.map(p => p.category))].filter(Boolean);
-        const brands = [...new Set(this.products.map(p => p.brandname))].filter(Boolean);
+        // Sort Categories and Brands Alphabetically
+        const cats = [...new Set(this.products.map(p => p.category))].filter(Boolean).sort((a, b) => a.localeCompare(b));
+        const brands = [...new Set(this.products.map(p => p.brandname))].filter(Boolean).sort((a, b) => a.localeCompare(b));
+        
         const catSelect = document.getElementById('filterCategory');
         const brandSelect = document.getElementById('filterBrand');
         catSelect.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
         brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+
+        // Extract, Normalize, and Sort Unique Tags
+        let allTags = new Set();
+        this.products.forEach(p => {
+            if(p.tags) {
+                p.tags.split(',').forEach(t => {
+                    let cleanTag = toTitleCase(t.trim());
+                    if(cleanTag) allTags.add(cleanTag);
+                });
+            }
+        });
+        
+        // Render Single-Click Tag Buttons
+        const tagContainer = document.getElementById('tagFilters');
+        if(allTags.size > 0) {
+            const tagsArr = [...allTags].sort((a, b) => a.localeCompare(b));
+            let tagsHTML = `<button class="tag-chip ${this.activeTag === '' ? 'active' : ''}" onclick="InventoryApp.setTag('')">All Tags</button>`;
+            tagsArr.forEach(t => {
+                tagsHTML += `<button class="tag-chip ${this.activeTag === t ? 'active' : ''}" onclick="InventoryApp.setTag('${t.replace(/'/g, "\\'")}')">${t}</button>`;
+            });
+            tagContainer.innerHTML = tagsHTML;
+            tagContainer.style.display = 'flex';
+        } else {
+            tagContainer.style.display = 'none';
+        }
     },
 
-   clearFilters() {
+    setTag(tag) {
+        this.activeTag = tag;
+        this.populateFilters(); // Re-render to update the 'active' highlight
+        this.filterItems();
+    },
+
+    clearFilters() {
         document.getElementById('posSearch').value = '';
         document.getElementById('filterCategory').value = '';
         document.getElementById('filterBrand').value = '';
+        document.getElementById('filterMinPrice').value = '';
+        document.getElementById('filterMaxPrice').value = '';
+        this.activeTag = '';
+        this.populateFilters();
         this.filterItems();
-        document.getElementById('posSearch').focus(); // Return cursor to search bar immediately
+        document.getElementById('posSearch').focus();
     },
 
     filterItems() {
-        // Smart Search: split search query into individual lowercase words
         const rawQuery = document.getElementById('posSearch').value;
         const queryWords = rawQuery.toLowerCase().split(/\s+/).filter(Boolean);
         const cat = document.getElementById('filterCategory').value;
         const brand = document.getElementById('filterBrand').value;
+        const minPrice = parseFloat(document.getElementById('filterMinPrice').value) || 0;
+        const maxPrice = parseFloat(document.getElementById('filterMaxPrice').value) || Infinity;
         
-        // Toggle the visibility of the new big Clear button
+        // Toggle Clear button visibility based on ALL filters
         const clearBtn = document.getElementById('searchClearBtn');
         if (clearBtn) {
-            clearBtn.style.display = (rawQuery !== '' || cat !== '' || brand !== '') ? 'block' : 'none';
+            clearBtn.style.display = (rawQuery !== '' || cat !== '' || brand !== '' || minPrice > 0 || maxPrice !== Infinity || this.activeTag !== '') ? 'block' : 'none';
         }
         
         this.filteredProducts = this.products.filter(p => {
-            // Combine all searchable text
-            const searchString = `${p.itemname} ${p.barcode || ''} ${p.brandname || ''} ${p.category || ''}`.toLowerCase();
-            
-            // Item must contain EVERY word typed in the search box, regardless of order
+            const searchString = `${p.itemname} ${p.barcode || ''} ${p.brandname || ''} ${p.category || ''} ${p.tags || ''}`.toLowerCase();
             const matchSearch = queryWords.every(word => searchString.includes(word));
-            
             const matchCat = cat === '' || p.category === cat;
             const matchBrand = brand === '' || p.brandname === brand;
             
-            return matchSearch && matchCat && matchBrand;
+            const price = parseFloat(p.sellingrate) || 0;
+            const matchPrice = price >= minPrice && price <= maxPrice;
+            
+            let matchTag = true;
+            if(this.activeTag !== '') {
+                const itemTags = p.tags ? p.tags.split(',').map(t => toTitleCase(t.trim())) : [];
+                matchTag = itemTags.includes(this.activeTag);
+            }
+            
+            return matchSearch && matchCat && matchBrand && matchPrice && matchTag;
         });
 
-        // Sorting: In-stock items first, 0 stock items at the very bottom
+        // Sorting: In-stock items first, 0 stock items at the very bottom, alphabetically
         this.filteredProducts.sort((a, b) => {
             const stockA = parseFloat(a.quantity) || 0;
             const stockB = parseFloat(b.quantity) || 0;
             const isOosA = stockA <= 0 ? 1 : 0;
             const isOosB = stockB <= 0 ? 1 : 0;
 
-            if (isOosA !== isOosB) return isOosA - isOosB; // 0 goes first, 1 goes last
-            return a.itemname.localeCompare(b.itemname); // Alphabetical fallback
+            if (isOosA !== isOosB) return isOosA - isOosB; 
+            return a.itemname.localeCompare(b.itemname); 
         });
 
-        // Reset grid and load first chunk
         this.displayCount = 0;
         document.getElementById('itemGrid').innerHTML = '';
         this.loadMoreItems();
@@ -137,12 +193,8 @@ const InventoryApp = {
             card.className = `item-card ${isOOS ? 'oos-card' : ''}`;
             card.type = 'button';
             
-            // Disable 0 stock items from being clicked
-            if (isOOS) {
-                card.disabled = true;
-            } else {
-                card.onclick = () => CartApp.addItem(p);
-            }
+            if (isOOS) { card.disabled = true; } 
+            else { card.onclick = () => CartApp.addItem(p); }
             
             card.innerHTML = `
                 <div class="${badgeClass}">${stock}</div>
@@ -163,6 +215,10 @@ const InventoryApp = {
 
 // --- INITIALIZATION ---
 window.onload = () => {
+    // Add event listeners for the Min/Max price inputs
+    document.getElementById('filterMinPrice').addEventListener('input', () => InventoryApp.filterItems());
+    document.getElementById('filterMaxPrice').addEventListener('input', () => InventoryApp.filterItems());
+    
     InventoryApp.initScroll();
     InventoryApp.sync();
     document.getElementById('posSearch').focus();
