@@ -33,9 +33,12 @@
                         <span class="filter-label">FILTERS:</span>
                         <select id="filterCategory" class="filter-input"><option value="">All Categories</option></select>
                         <select id="filterBrand" class="filter-input"><option value="">All Brands</option></select>
+                        <input type="number" id="filterMinPrice" class="filter-input input-small" placeholder="Min ₹">
+                        <span class="filter-label" style="font-weight:normal;">to</span>
+                        <input type="number" id="filterMaxPrice" class="filter-input input-small" placeholder="Max ₹">
                         <button onclick="InventoryApp.clearFilters()" class="btn btn-danger-outline">Clear</button>
                     </div>
-
+                    <div id="tagFilters" class="tags-container" style="display: none;"></div>
                     <div class="item-grid" id="itemGrid">
                         <!-- Products load here -->
                     </div>
