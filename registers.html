@@ -224,7 +224,7 @@
                         <td style="text-align: right; font-weight: bold;">₹${amount.toFixed(2)}</td>
                         <td style="text-align: center; display: flex; justify-content: center; gap: 8px;">
                             <button class="action-btn btn-print" onclick="RegisterApp.printVoucher('${v.id}')">🖨️ Print</button>
-                            <button class="action-btn btn-del-reg" onclick="RegisterApp.deleteVoucher('${v.id}')">🗑️ Del</button>
+                            <button class="action-btn btn-del-reg" onclick="RegisterApp.deleteVoucher('${v.firebaseId}')">🗑️ Del</button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -272,12 +272,11 @@
                 document.getElementById('printWrapper').classList.remove('active');
             },
 
-            async deleteVoucher(id) {
-                if(!confirm(`Are you sure you want to permanently delete Invoice ${id}?`)) return;
-                
+            async deleteVoucher(firebaseId) {
+                if(!confirm(`Are you sure you want to permanently delete this Invoice?`)) return;
                 try {
-                    await API.deleteVoucher(id);
-                    this.allVouchers = this.allVouchers.filter(v => v.id !== id);
+                    await API.deleteVoucher(firebaseId);
+                    this.allVouchers = this.allVouchers.filter(v => v.firebaseId !== firebaseId);
                     this.filterData();
                     alert("Voucher deleted successfully.");
                 } catch(e) {
