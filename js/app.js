@@ -180,6 +180,11 @@ const InventoryApp = {
 
     loadMoreItems() {
         const grid = document.getElementById('itemGrid');
+        
+        // Remove existing load more button if it exists
+        const existingBtn = document.getElementById('inlineLoadMoreBtn');
+        if(existingBtn) existingBtn.remove();
+
         const toLoad = this.filteredProducts.slice(this.displayCount, this.displayCount + this.chunkSize);
 
         toLoad.forEach(p => {
@@ -211,17 +216,15 @@ const InventoryApp = {
 
         this.displayCount += toLoad.length;
 
-        // Toggle "Load More" button visibility
-        const loadMoreContainer = document.getElementById('loadMoreContainer');
-        if (loadMoreContainer) {
-            if (this.displayCount < this.filteredProducts.length) {
-                loadMoreContainer.style.display = 'flex';
-            } else {
-                loadMoreContainer.style.display = 'none';
-            }
+        // Dynamically append the Load More button inside the grid wrapper
+        if (this.displayCount < this.filteredProducts.length) {
+            const btnContainer = document.createElement('div');
+            btnContainer.id = 'inlineLoadMoreBtn';
+            btnContainer.className = 'inline-load-more';
+            btnContainer.innerHTML = `<button class="btn-load-more" onclick="InventoryApp.loadMoreItems()">Load More Items ⬇</button>`;
+            grid.appendChild(btnContainer);
         }
     }
-};
 
 // --- INITIALIZATION ---
 window.onload = () => {
