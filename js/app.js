@@ -238,6 +238,105 @@ const InventoryApp = {
 // --- CART LOGIC ---
 const CartApp = {
     items: [],
+
+    // --- NEW: CLEAR & HOLD BILL LOGIC ---
+    clearCart() {
+        if (this.items.length === 0) return;
+        if (confirm("Are you sure you want to completely clear the cart?")) {
+            this.items = [];
+            const cust = document.getElementById('posCustomer');
+            const mob = document.getElementById('posMobile');
+            const dis = document.getElementById('billDiscountValue');
+            if(cust) cust.value = '';
+            if(mob) mob.value = '';
+            if(dis) dis.value = '0';
+            this.render();
+        }
+    },
+    holdBill() {
+        if (this.items.length === 0) return alert("Cart is empty!");
+        const custName = document.getElementById('posCustomer')?.value || 'Walk-in';
+        const total = document.getElementById('cartGrandTotal')?.innerText || '₹0.00';
+        
+        const bill = {
+            id: Date.now().toString(),
+            customer: custName,
+            mobile: document.getElementById('posMobile')?.value || '',
+            discountType: document.getElementById('billDiscountType')?.value || 'Amt',
+            discountValue: document.getElementById('billDiscountValue')?.value || '0',
+            items: JSON.parse(JSON.stringify(this.items)),
+            total: total,
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+        
+        let holds = JSON.parse(localStorage.getItem('glacier_holds') || '[]');
+        holds.push(bill);
+        localStorage.setItem('glacier_holds', JSON.stringify(holds));
+        
+        // Clear cart silently after holding
+        this.items = [];
+        if(document.getElementById('posCustomer')) document.getElementById('posCustomer').value = '';
+        if(document.getElementById('posMobile')) document.getElementById('posMobile').value = '';
+        if(document.getElementById('billDiscountValue')) document.getElementById('billDiscountValue').value = '0';
+        this.render();
+    },
+    openRecallModal() {
+        const holds = JSON.parse(localStorage.getItem('glacier_holds') || '[]');
+        const container = document.getElementById('heldBillsContainer');
+        container.innerHTML = '';
+        
+        if (holds.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">No bills currently on hold.</div>';
+        } else {
+            holds.forEach(h => {
+                container.innerHTML += `
+                    <div class="held-bill-card">
+                        <div>
+                            <div style="font-weight: bold; font-size: 14px; color: var(--primary);">${h.customer} <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(${h.time})</span></div>
+                            <div style="font-size: 12px; color: var(--text-muted);">${h.items.length} items | Total: <span style="color:var(--danger); font-weight:bold;">${h.total}</span></div>
+                        </div>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="btn btn-success" style="padding: 5px 12px; font-size: 12px;" onclick="CartApp.resumeBill('${h.id}')">▶ Resume</button>
+                            <button class="btn btn-danger-outline" style="padding: 5px 10px; font-size: 12px;" onclick="CartApp.deleteHeldBill('${h.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        document.getElementById('recallModal').classList.add('active');
+    },
+    resumeBill(id) {
+        if (this.items.length > 0) {
+            if (!confirm("Your current cart is not empty! Resuming will overwrite it. Put the current bill on hold first?")) return;
+        }
+        let holds = JSON.parse(localStorage.getItem('glacier_holds') || '[]');
+        const billIndex = holds.findIndex(h => h.id === id);
+        if (billIndex === -1) return;
+        
+        const bill = holds[billIndex];
+        this.items = bill.items;
+        if(document.getElementById('posCustomer')) document.getElementById('posCustomer').value = bill.customer === 'Walk-in' ? '' : bill.customer;
+        if(document.getElementById('posMobile')) document.getElementById('posMobile').value = bill.mobile;
+        if(document.getElementById('billDiscountType')) document.getElementById('billDiscountType').value = bill.discountType;
+        if(document.getElementById('billDiscountValue')) document.getElementById('billDiscountValue').value = bill.discountValue;
+        
+        // Remove from holds once resumed
+        holds.splice(billIndex, 1);
+        localStorage.setItem('glacier_holds', JSON.stringify(holds));
+        
+        document.getElementById('recallModal').classList.remove('active');
+        this.render();
+    },
+    deleteHeldBill(id) {
+        if(!confirm("Delete this held bill permanently?")) return;
+        let holds = JSON.parse(localStorage.getItem('glacier_holds') || '[]');
+        holds = holds.filter(h => h.id !== id);
+        localStorage.setItem('glacier_holds', JSON.stringify(holds));
+        this.openRecallModal(); // Refresh UI list immediately
+    },
+    // --- END NEW LOGIC ---
+
+    
     addItem(product) {
         const existing = this.items.find(i => i.barcode === product.barcode && i.itemName === product.itemname);
         if (existing) {
