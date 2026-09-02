@@ -21,7 +21,7 @@
             <div class="pos-layout">
                 <!-- Left Panel: Search, Filters, Grid -->
                 <div class="grid-area">
-                   <div class="search-row">
+                    <div class="search-row">
                         <div class="search-input-wrapper">
                             <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
                             <button id="searchClearBtn" class="btn-clear-search" onclick="InventoryApp.clearFilters()" title="Clear Search & Filters">✖ CLEAR</button>
@@ -37,16 +37,13 @@
                         <input type="number" id="filterMinPrice" class="filter-input input-small" placeholder="Min ₹">
                         <span class="filter-label" style="font-weight:normal;">to</span>
                         <input type="number" id="filterMaxPrice" class="filter-input input-small" placeholder="Max ₹">
-                        <button onclick="InventoryApp.clearFilters()" class="btn btn-danger-outline">Clear</button>
                     </div>
+                    
+                    <!-- Tags Container -->
                     <div id="tagFilters" class="tags-container" style="display: none;"></div>
+
                     <div class="item-grid" id="itemGrid">
                         <!-- Products load here -->
-                    
-                    <!-- NEW: Load More Button -->
-                    <div id="loadMoreContainer" class="load-more-container" style="display: none;">
-                        <button class="btn-load-more" onclick="InventoryApp.loadMoreItems()">Load More Items ⬇</button>
-                    </div>
                     </div>
                 </div>
 
