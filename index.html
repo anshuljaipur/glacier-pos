@@ -31,7 +31,6 @@
                             <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
                             <button id="searchClearBtn" class="btn-clear-search" onclick="InventoryApp.clearFilters()" title="Clear Search & Filters">✖ CLEAR</button>
                         </div>
-                        <button class="btn btn-warning btn-new-item" style="background: #f59e0b;" onclick="openInwardModal()">📦 Inward</button>
                         <button class="btn btn-primary btn-new-item" onclick="openQuickAdd()">+ New Item</button>
                     </div>
                     
@@ -278,48 +277,10 @@
 
             <button class="btn btn-success" id="btn-save-item" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold; margin-top: 15px;" onclick="saveNewItem()">💾 ADD TO DATABASE</button>
         </div>
-    </div> <!-- THIS CLOSING DIV WAS MISSING -->
-
-
-    <!-- Inward Stock Modal -->
-    <div id="inwardModal" class="modal-overlay no-print">
-        <div class="modal-box" style="width: 450px;">
-            <div class="modal-header">
-                <span>📦 Inward Stock / Purchase</span>
-                <span class="close-modal-icon" onclick="document.getElementById('inwardModal').classList.remove('active')" style="cursor:pointer; font-size: 20px;">×</span>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 12px; color: var(--text-muted);">Select Product *</label>
-                <input type="text" id="inwardItemSearch" class="filter-input" style="width: 100%; border-color: var(--primary);" list="inwardItemList" placeholder="Search product..." onchange="handleInwardSelection()">
-                <datalist id="inwardItemList"></datalist>
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Current Stock</label>
-                    <input type="text" id="inwardCurrentStock" class="filter-input" style="width: 100%; background: #f3f4f6;" disabled value="0">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Add Quantity *</label>
-                    <input type="number" id="inwardAddQty" class="filter-input" style="width: 100%; font-weight: bold; color: var(--success);" value="0" min="1">
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Purchase Rate (₹)</label>
-                    <input type="number" id="inwardPurchaseRate" class="filter-input" style="width: 100%;" value="0" min="0" step="0.01">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Supplier Name</label>
-                    <input type="text" id="inwardSupplier" class="filter-input" style="width: 100%;" placeholder="Optional">
-                </div>
-            </div>
-
-            <button class="btn btn-success" id="btn-save-inward" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold;" onclick="saveInwardStock()">💾 UPDATE STOCK</button>
-        </div>
     </div>
+
+
+    
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="js/config.js"></script>
