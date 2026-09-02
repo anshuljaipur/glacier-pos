@@ -176,3 +176,37 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
     box-shadow: var(--shadow-sm);
     border-color: var(--border);
 }
+
+/* Tags Filter Chips */
+.tags-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: none;
+}
+.tags-container::-webkit-scrollbar { display: none; }
+
+.tag-chip {
+    padding: 6px 14px;
+    background: var(--white);
+    border: 1px solid var(--border-dark);
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+.tag-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.tag-chip.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2);
+}
