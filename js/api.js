@@ -10,7 +10,27 @@ const API = {
             throw error;
         }
     },
-
+async getRegisters() {
+        try {
+            const res = await fetch(`${CONFIG.API_URL}?action=getRegisters`);
+            return await res.json();
+        } catch (error) {
+            console.error("Fetch Registers Error:", error);
+            throw error;
+        }
+    },
+    async deleteVoucher(id) {
+        try {
+            const res = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'deleteVoucher', payload: { id: id } })
+            });
+            return await res.json();
+        } catch (error) {
+            console.error("Delete Voucher Error:", error);
+            throw error;
+        }
+    }
     async inwardStock(payload) {
         try {
             const res = await fetch(CONFIG.API_URL, {
