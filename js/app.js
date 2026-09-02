@@ -1,10 +1,19 @@
+// --- HELPERS & GLOBAL LISTENERS ---
 let scanBuffer = "";
 let scanTimeout;
 
+const toTitleCase = (str) => {
+    if (!str) return '';
+    return String(str).toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+};
+
 document.addEventListener('keydown', (e) => {
     if(e.key === 'F4') { e.preventDefault(); CartApp.openPaymentPopup(); return; }
+    if (e.altKey && e.code === 'KeyC') { e.preventDefault(); openQuickAdd(); return; }
     if(e.key === 'Escape') { 
         document.getElementById('paymentModal').classList.remove('active');
+        document.getElementById('quickAddModal').classList.remove('active');
+        document.getElementById('inwardModal').classList.remove('active');
         if(document.getElementById('printWrapper').classList.contains('active')) {
             CartApp.closePrintAndReset();
         }
@@ -21,7 +30,8 @@ document.addEventListener('keydown', (e) => {
                 const prod = InventoryApp.products.find(p => p.barcode && p.barcode.toString().trim() === scanBuffer.trim());
                 if(prod) {
                     CartApp.addItem(prod);
-                    document.getElementById('posSearch').value = '';
+                    const searchBox = document.getElementById('posSearch');
+                    if (searchBox) searchBox.value = '';
                 }
             }
             scanBuffer = "";
@@ -29,11 +39,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- TITLE CASE HELPER ---
-const toTitleCase = (str) => {
-    if (!str) return '';
-    return String(str).toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
-};
 
 // --- INVENTORY & SMART SEARCH LOGIC ---
 const InventoryApp = {
@@ -41,15 +46,16 @@ const InventoryApp = {
     filteredProducts: [],
     displayCount: 0,
     chunkSize: 40,
-    activeTag: '', // Tracks the currently clicked tag
+    activeTag: '',
 
     async sync() {
         try {
             const btn = document.getElementById('network-status');
-            btn.textContent = "↻ Syncing...";
+            if(btn) btn.textContent = "↻ Syncing...";
+            
             const rawProducts = await API.getInventory();
             
-            // Normalize all names, brands, and categories to Title Case
+            // Normalize names for perfect filtering
             this.products = rawProducts.map(p => ({
                 ...p,
                 itemname: toTitleCase(p.itemname),
@@ -57,36 +63,25 @@ const InventoryApp = {
                 category: toTitleCase(p.category)
             }));
 
-            btn.textContent = "↻ Sync Data";
+            if(btn) btn.textContent = "↻ Sync Data";
             this.populateFilters();
             this.filterItems(); 
         } catch (err) {
-            document.getElementById('network-status').textContent = "⚠ Offline Mode";
+            const btn = document.getElementById('network-status');
+            if(btn) btn.textContent = "⚠ Offline Mode";
+            console.error(err);
         }
     },
 
-    initScroll() {
-        const grid = document.getElementById('itemGrid');
-        grid.addEventListener('scroll', () => {
-            if (grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 300) {
-                if (this.displayCount < this.filteredProducts.length) {
-                    this.loadMoreItems();
-                }
-            }
-        });
-    },
-
     populateFilters() {
-        // Sort Categories and Brands Alphabetically
         const cats = [...new Set(this.products.map(p => p.category))].filter(Boolean).sort((a, b) => a.localeCompare(b));
         const brands = [...new Set(this.products.map(p => p.brandname))].filter(Boolean).sort((a, b) => a.localeCompare(b));
         
         const catSelect = document.getElementById('filterCategory');
         const brandSelect = document.getElementById('filterBrand');
-        catSelect.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
-        brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+        if(catSelect) catSelect.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+        if(brandSelect) brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
 
-        // Extract, Normalize, and Sort Unique Tags
         let allTags = new Set();
         this.products.forEach(p => {
             if(p.tags) {
@@ -97,48 +92,50 @@ const InventoryApp = {
             }
         });
         
-        // Render Single-Click Tag Buttons
         const tagContainer = document.getElementById('tagFilters');
-        if(allTags.size > 0) {
-            const tagsArr = [...allTags].sort((a, b) => a.localeCompare(b));
-            let tagsHTML = `<button class="tag-chip ${this.activeTag === '' ? 'active' : ''}" onclick="InventoryApp.setTag('')">All Tags</button>`;
-            tagsArr.forEach(t => {
-                tagsHTML += `<button class="tag-chip ${this.activeTag === t ? 'active' : ''}" onclick="InventoryApp.setTag('${t.replace(/'/g, "\\'")}')">${t}</button>`;
-            });
-            tagContainer.innerHTML = tagsHTML;
-            tagContainer.style.display = 'flex';
-        } else {
-            tagContainer.style.display = 'none';
+        if(tagContainer) {
+            if(allTags.size > 0) {
+                const tagsArr = [...allTags].sort((a, b) => a.localeCompare(b));
+                let tagsHTML = `<button class="tag-chip ${this.activeTag === '' ? 'active' : ''}" onclick="InventoryApp.setTag('')">All Tags</button>`;
+                tagsArr.forEach(t => {
+                    tagsHTML += `<button class="tag-chip ${this.activeTag === t ? 'active' : ''}" onclick="InventoryApp.setTag('${t.replace(/'/g, "\\'")}')">${t}</button>`;
+                });
+                tagContainer.innerHTML = tagsHTML;
+                tagContainer.style.display = 'flex';
+            } else {
+                tagContainer.style.display = 'none';
+            }
         }
     },
 
     setTag(tag) {
         this.activeTag = tag;
-        this.populateFilters(); // Re-render to update the 'active' highlight
+        this.populateFilters();
         this.filterItems();
     },
 
     clearFilters() {
-        document.getElementById('posSearch').value = '';
-        document.getElementById('filterCategory').value = '';
-        document.getElementById('filterBrand').value = '';
-        document.getElementById('filterMinPrice').value = '';
-        document.getElementById('filterMaxPrice').value = '';
+        if(document.getElementById('posSearch')) document.getElementById('posSearch').value = '';
+        if(document.getElementById('filterCategory')) document.getElementById('filterCategory').value = '';
+        if(document.getElementById('filterBrand')) document.getElementById('filterBrand').value = '';
+        if(document.getElementById('filterMinPrice')) document.getElementById('filterMinPrice').value = '';
+        if(document.getElementById('filterMaxPrice')) document.getElementById('filterMaxPrice').value = '';
         this.activeTag = '';
         this.populateFilters();
         this.filterItems();
-        document.getElementById('posSearch').focus();
+        if(document.getElementById('posSearch')) document.getElementById('posSearch').focus();
     },
 
     filterItems() {
-        const rawQuery = document.getElementById('posSearch').value;
+        const searchBox = document.getElementById('posSearch');
+        const rawQuery = searchBox ? searchBox.value : '';
         const queryWords = rawQuery.toLowerCase().split(/\s+/).filter(Boolean);
-        const cat = document.getElementById('filterCategory').value;
-        const brand = document.getElementById('filterBrand').value;
-        const minPrice = parseFloat(document.getElementById('filterMinPrice').value) || 0;
-        const maxPrice = parseFloat(document.getElementById('filterMaxPrice').value) || Infinity;
         
-        // Toggle Clear button visibility based on ALL filters
+        const cat = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : '';
+        const brand = document.getElementById('filterBrand') ? document.getElementById('filterBrand').value : '';
+        const minPrice = document.getElementById('filterMinPrice') ? parseFloat(document.getElementById('filterMinPrice').value) || 0 : 0;
+        const maxPrice = document.getElementById('filterMaxPrice') ? parseFloat(document.getElementById('filterMaxPrice').value) || Infinity : Infinity;
+        
         const clearBtn = document.getElementById('searchClearBtn');
         if (clearBtn) {
             clearBtn.style.display = (rawQuery !== '' || cat !== '' || brand !== '' || minPrice > 0 || maxPrice !== Infinity || this.activeTag !== '') ? 'block' : 'none';
@@ -162,7 +159,6 @@ const InventoryApp = {
             return matchSearch && matchCat && matchBrand && matchPrice && matchTag;
         });
 
-        // Sorting: In-stock items first, 0 stock items at the very bottom, alphabetically
         this.filteredProducts.sort((a, b) => {
             const stockA = parseFloat(a.quantity) || 0;
             const stockB = parseFloat(b.quantity) || 0;
@@ -174,14 +170,15 @@ const InventoryApp = {
         });
 
         this.displayCount = 0;
-        document.getElementById('itemGrid').innerHTML = '';
+        const grid = document.getElementById('itemGrid');
+        if(grid) grid.innerHTML = '';
         this.loadMoreItems();
     },
 
     loadMoreItems() {
         const grid = document.getElementById('itemGrid');
-        
-        // Remove existing load more button if it exists
+        if(!grid) return;
+
         const existingBtn = document.getElementById('inlineLoadMoreBtn');
         if(existingBtn) existingBtn.remove();
 
@@ -216,7 +213,6 @@ const InventoryApp = {
 
         this.displayCount += toLoad.length;
 
-        // Dynamically append the Load More button inside the grid wrapper
         if (this.displayCount < this.filteredProducts.length) {
             const btnContainer = document.createElement('div');
             btnContainer.id = 'inlineLoadMoreBtn';
@@ -225,21 +221,14 @@ const InventoryApp = {
             grid.appendChild(btnContainer);
         }
     }
-
-// --- INITIALIZATION ---
-window.onload = () => {
-    document.getElementById('filterMinPrice').addEventListener('input', () => InventoryApp.filterItems());
-    document.getElementById('filterMaxPrice').addEventListener('input', () => InventoryApp.filterItems());
-    
-    // Removed initScroll() here
-    InventoryApp.sync();
-    document.getElementById('posSearch').focus();
 };
 
+
+// --- CART LOGIC ---
 const CartApp = {
     items: [],
     addItem(product) {
-        const existing = this.items.find(i => i.barcode === product.barcode);
+        const existing = this.items.find(i => i.barcode === product.barcode && i.itemName === product.itemname);
         if (existing) {
             existing.qty += 1;
         } else {
@@ -253,24 +242,26 @@ const CartApp = {
         }
         this.render();
     },
-    updateField(barcode, field, val) {
-        const item = this.items.find(i => i.barcode === barcode);
+    updateField(index, field, val) {
+        const item = this.items[index];
         if(item) {
             item[field] = field === 'qty' ? (parseInt(val, 10) || 1) : (parseFloat(val) || 0);
             this.render();
         }
     },
-    removeItem(barcode) {
-        this.items = this.items.filter(i => i.barcode !== barcode);
+    removeItem(index) {
+        this.items.splice(index, 1);
         this.render();
     },
     render() {
         const tbody = document.getElementById('cartBody');
+        if(!tbody) return;
+        
         tbody.innerHTML = '';
         let subtotal = 0;
         let totalItems = 0;
 
-        this.items.forEach(c => {
+        this.items.forEach((c, index) => {
             const gross = c.qty * c.rate;
             const disAmt = gross * (c.discountPerc / 100);
             const net = gross - disAmt;
@@ -280,30 +271,29 @@ const CartApp = {
             tbody.innerHTML += `
                 <li class="cart-item">
                     <div style="flex: 2; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${c.itemName}">${c.itemName}</div>
-                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField('${c.barcode}', 'qty', this.value)" min="1"></div>
-                    <div style="flex: 1;"><input type="number" class="cart-item-input" value="${c.rate}" onchange="CartApp.updateField('${c.barcode}', 'rate', this.value)" min="0" step="0.01"></div>
-                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.discountPerc}" onchange="CartApp.updateField('${c.barcode}', 'discountPerc', this.value)" min="0" max="100" step="0.01"></div>
+                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField(${index}, 'qty', this.value)" min="1"></div>
+                    <div style="flex: 1;"><input type="number" class="cart-item-input" value="${c.rate}" onchange="CartApp.updateField(${index}, 'rate', this.value)" min="0" step="0.01"></div>
+                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.discountPerc}" onchange="CartApp.updateField(${index}, 'discountPerc', this.value)" min="0" max="100" step="0.01"></div>
                     <div style="flex: 1; font-weight:bold; text-align:right;">₹${net.toFixed(2)}</div>
-                    <div style="width: 25px; text-align:right;"><button class="btn-del" onclick="CartApp.removeItem('${c.barcode}')">×</button></div>
+                    <div style="width: 25px; text-align:right;"><button class="btn-del" onclick="CartApp.removeItem(${index})">×</button></div>
                 </li>
             `;
         });
 
-        const bType = document.getElementById('billDiscountType').value;
-        const bVal = parseFloat(document.getElementById('billDiscountValue').value) || 0;
+        const bType = document.getElementById('billDiscountType') ? document.getElementById('billDiscountType').value : 'Amt';
+        const bVal = document.getElementById('billDiscountValue') ? parseFloat(document.getElementById('billDiscountValue').value) || 0 : 0;
         let billDisAmt = bType === 'Amt' ? bVal : subtotal * (bVal / 100);
         
         const netBeforeRound = subtotal - billDisAmt;
         const finalPayable = Math.round(netBeforeRound);
         const roundOff = finalPayable - netBeforeRound;
 
-        document.getElementById('cartQtySummary').innerText = `${totalItems} Qty (${this.items.length} Types)`;
-        document.getElementById('cartSubtotal').innerText = `₹${subtotal.toFixed(2)}`;
+        if(document.getElementById('cartQtySummary')) document.getElementById('cartQtySummary').innerText = `${totalItems} Qty (${this.items.length} Types)`;
+        if(document.getElementById('cartSubtotal')) document.getElementById('cartSubtotal').innerText = `₹${subtotal.toFixed(2)}`;
+        if(document.getElementById('cartRoundOff')) document.getElementById('cartRoundOff').innerText = `${roundOff > 0 ? '+' : ''}${roundOff.toFixed(2)}`;
+        if(document.getElementById('cartGrandTotal')) document.getElementById('cartGrandTotal').innerText = `₹${Math.max(0, finalPayable).toFixed(2)}`;
         
-        document.getElementById('cartRoundOff').innerText = `${roundOff > 0 ? '+' : ''}${roundOff.toFixed(2)}`;
-        document.getElementById('cartGrandTotal').innerText = `₹${Math.max(0, finalPayable).toFixed(2)}`;
-        
-        if(document.getElementById('paymentModal').classList.contains('active')) this.calcSplitPay();
+        if(document.getElementById('paymentModal') && document.getElementById('paymentModal').classList.contains('active')) this.calcSplitPay();
     },
     openPaymentPopup() {
         if(this.items.length === 0) return alert("Cart is empty!");
@@ -329,13 +319,15 @@ const CartApp = {
         const lbl = document.getElementById('lblBalance');
         const box = document.getElementById('payBalance');
         
+        if(!lbl || !box) return;
+
         if (balance > 0) { lbl.innerText = "Due"; lbl.style.color = "var(--danger)"; box.style.color = "var(--danger)"; box.value = balance.toFixed(2); } 
         else if (balance < 0) { lbl.innerText = "Change"; lbl.style.color = "var(--success)"; box.style.color = "var(--success)"; box.value = Math.abs(balance).toFixed(2); } 
         else { lbl.innerText = "Settled"; lbl.style.color = "var(--text-main)"; box.style.color = "var(--text-main)"; box.value = "0.00"; }
     },
-   isCheckingOut: false,
+    isCheckingOut: false,
     async checkout() {
-        if (this.isCheckingOut) return; // Prevent double clicks hanging the UI
+        if (this.isCheckingOut) return; 
         this.isCheckingOut = true;
         
         const btn = document.getElementById('btn-save-sale');
@@ -411,40 +403,18 @@ const CartApp = {
     closePrintAndReset() {
         document.getElementById('printWrapper').classList.remove('active');
         this.items = [];
-        document.getElementById('posCustomer').value = 'Cash Walk-in';
-        document.getElementById('posMobile').value = '';
-        document.getElementById('billDiscountValue').value = '0';
+        if(document.getElementById('posCustomer')) document.getElementById('posCustomer').value = 'Cash Walk-in';
+        if(document.getElementById('posMobile')) document.getElementById('posMobile').value = '';
+        if(document.getElementById('billDiscountValue')) document.getElementById('billDiscountValue').value = '0';
         this.render();
         InventoryApp.sync();
     }
 };
 
-document.getElementById('posSearch').addEventListener('input', () => InventoryApp.filterItems());
-document.getElementById('filterCategory').addEventListener('change', () => InventoryApp.filterItems());
-document.getElementById('filterBrand').addEventListener('change', () => InventoryApp.filterItems());
-document.getElementById('billDiscountValue').addEventListener('input', () => CartApp.render());
-document.getElementById('billDiscountType').addEventListener('change', () => CartApp.render());
-['payCash', 'payUPI', 'payCard'].forEach(id => {
-    document.getElementById(id).addEventListener('input', () => CartApp.calcSplitPay());
-});
-
-window.onload = () => {
-    InventoryApp.sync();
-    document.getElementById('posSearch').focus();
-};
-
-// --- NEW ITEM / QUICK ADD LOGIC ---
-
-// Map Alt+C shortcut to open modal
-document.addEventListener('keydown', (e) => {
-    if (e.altKey && e.code === 'KeyC') {
-        e.preventDefault();
-        openQuickAdd();
-    }
-});
+// --- NEW ITEM LOGIC ---
+let isSavingItem = false;
 
 function openQuickAdd() {
-    // Populate auto-complete dropdowns
     const cats = [...new Set(InventoryApp.products.map(p => p.category))].filter(Boolean);
     const brands = [...new Set(InventoryApp.products.map(p => p.brandname))].filter(Boolean);
     document.getElementById('qCatList').innerHTML = cats.map(c => `<option value="${c}">`).join('');
@@ -465,10 +435,8 @@ function toggleItemFields() {
     }
 }
 
-let isSavingItem = false;
-
 async function saveNewItem() {
-    if (isSavingItem) return; // Prevent double-clicks
+    if (isSavingItem) return; 
     
     const target = document.getElementById('qTarget').value;
     const name = document.getElementById('qName').value.trim();
@@ -484,9 +452,9 @@ async function saveNewItem() {
     btn.textContent = "⏳ SAVING...";
     btn.disabled = true;
     
-    // Immediately hide the modal so the user can't interact with it while saving
     document.getElementById('quickAddModal').classList.remove('active');
-    document.getElementById('network-status').textContent = "↻ Syncing New Item...";
+    const netStatus = document.getElementById('network-status');
+    if(netStatus) netStatus.textContent = "↻ Syncing New Item...";
 
     const payload = {
         target: target,
@@ -504,7 +472,7 @@ async function saveNewItem() {
         payload.moq = document.getElementById('qMOQ').value || 1;
     } else {
         payload.available = document.getElementById('qAvailable').value;
-        payload.launchingyear = document.getElementById('qLaunchYear').value; // Will send "YYYY-MM"
+        payload.launchingyear = document.getElementById('qLaunchYear').value; 
         payload.tags = document.getElementById('qTags').value;
         payload.description = document.getElementById('qDesc').value;
         payload.ingredients = document.getElementById('qIng').value;
@@ -513,18 +481,15 @@ async function saveNewItem() {
     try {
         await API.createItem(payload);
         
-        // Clear all inputs for the next entry
         ['qBarcode', 'qName', 'qCategory', 'qBrand', 'qMRP', 'qPrice', 'qImage', 'qQty', 'qLaunchYear', 'qTags', 'qDesc', 'qIng'].forEach(id => {
             if(document.getElementById(id)) document.getElementById(id).value = '';
         });
         
-        // Force a full synchronous refresh of the grid
         await InventoryApp.sync(); 
-        
         alert("Item added successfully!");
     } catch(e) {
         alert("Failed to save item: " + e.message);
-        document.getElementById('network-status').textContent = "⚠ Offline Mode";
+        if(netStatus) netStatus.textContent = "⚠ Offline Mode";
     } finally {
         isSavingItem = false;
         btn.textContent = "💾 ADD TO DATABASE";
@@ -537,17 +502,14 @@ let selectedInwardItem = null;
 
 function openInwardModal() {
     const datalist = document.getElementById('inwardItemList');
-    datalist.innerHTML = InventoryApp.products.map(p => `<option value="${p.itemname}">`).join('');
+    if(datalist) datalist.innerHTML = InventoryApp.products.map(p => `<option value="${p.itemname}">`).join('');
     
-    document.getElementById('inwardItemSearch').value = '';
-    document.getElementById('inwardCurrentStock').value = '0';
-    document.getElementById('inwardAddQty').value = '0';
-    document.getElementById('inwardPurchaseRate').value = '0';
-    document.getElementById('inwardSupplier').value = '';
+    ['inwardItemSearch', 'inwardSupplier'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = ''; });
+    ['inwardCurrentStock', 'inwardAddQty', 'inwardPurchaseRate'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).value = '0'; });
     selectedInwardItem = null;
 
     document.getElementById('inwardModal').classList.add('active');
-    setTimeout(() => document.getElementById('inwardItemSearch').focus(), 50);
+    setTimeout(() => document.getElementById('inwardItemSearch')?.focus(), 50);
 }
 
 function handleInwardSelection() {
@@ -585,10 +547,11 @@ async function saveInwardStock() {
     try {
         await API.inwardStock(payload);
         document.getElementById('inwardModal').classList.remove('active');
-        document.getElementById('network-status').textContent = "↻ Syncing Update...";
+        const netStatus = document.getElementById('network-status');
+        if(netStatus) netStatus.textContent = "↻ Syncing Update...";
         
         alert("Stock updated successfully!");
-        await InventoryApp.sync(); // Refresh grid to show new stock
+        await InventoryApp.sync(); 
     } catch(e) {
         alert("Failed to inward stock: " + e.message);
     } finally {
@@ -596,3 +559,21 @@ async function saveInwardStock() {
         btn.disabled = false;
     }
 }
+
+// --- INITIALIZATION ---
+window.onload = () => {
+    // Safely attach event listeners to inputs if they exist in the HTML
+    document.getElementById('posSearch')?.addEventListener('input', () => InventoryApp.filterItems());
+    document.getElementById('filterCategory')?.addEventListener('change', () => InventoryApp.filterItems());
+    document.getElementById('filterBrand')?.addEventListener('change', () => InventoryApp.filterItems());
+    document.getElementById('filterMinPrice')?.addEventListener('input', () => InventoryApp.filterItems());
+    document.getElementById('filterMaxPrice')?.addEventListener('input', () => InventoryApp.filterItems());
+    document.getElementById('billDiscountValue')?.addEventListener('input', () => CartApp.render());
+    document.getElementById('billDiscountType')?.addEventListener('change', () => CartApp.render());
+    ['payCash', 'payUPI', 'payCard'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => CartApp.calcSplitPay());
+    });
+
+    InventoryApp.sync();
+    document.getElementById('posSearch')?.focus();
+};
