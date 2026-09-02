@@ -1,3 +1,18 @@
+// Initialize Firebase using your existing Glacier project credentials
+const firebaseConfig = {
+    apiKey: "AIzaSyCZJj830ufepvh2fh_ehkPoOki_l3QcCew",
+    authDomain: "glacier-ice-cream-parlor.firebaseapp.com",
+    projectId: "glacier-ice-cream-parlor",
+    storageBucket: "glacier-ice-cream-parlor.firebasestorage.app",
+    messagingSenderId: "281867852305",
+    appId: "1:281867852305:web:6a35075905bdadb0592fb0"
+};
+
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+
 const API = {
     async getInventory() {
         try {
@@ -5,7 +20,7 @@ const API = {
             const data = await res.json();
             if (Array.isArray(data)) return data;
             if (data && data.success) return data.products;
-            throw new Error(data.message || 'Invalid data format received');
+            throw new Error(data.message || 'Invalid data format');
         } catch (error) {
             console.error("Inventory Sync Error:", error);
             throw error;
@@ -14,13 +29,20 @@ const API = {
 
     async saveSale(payload) {
         try {
-            const res = await fetch(CONFIG.API_URL, {
+            payload.date = new Date().toISOString().split('T')[0];
+            payload.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            payload.type = 'Sale';
+            
+            // 1. Save to Firebase instantly
+            const docRef = await db.collection('pos_vouchers').add(payload);
+            
+            // 2. Update stock in Google Sheets silently in the background
+            fetch(CONFIG.API_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'saveSale', payload: payload })
-            });
-            const data = await res.json();
-            if(data && data.success === false) throw new Error(data.message || 'Failed to save sale');
-            return data;
+                body: JSON.stringify({ action: 'updateStock', payload: payload })
+            }).catch(e => console.error("Stock update failed", e));
+
+            return { success: true, id: docRef.id };
         } catch (error) {
             console.error("Save Sale Error:", error);
             throw error;
@@ -29,19 +51,24 @@ const API = {
 
     async savePurchase(payload) {
         try {
-            const res = await fetch(CONFIG.API_URL, {
+            payload.date = new Date().toISOString().split('T')[0];
+            payload.timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            payload.type = 'Purchase';
+            
+            const docRef = await db.collection('pos_vouchers').add(payload);
+
+            fetch(CONFIG.API_URL, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'savePurchase', payload: payload })
-            });
-            const data = await res.json();
-            if(data && data.success === false) throw new Error(data.message || 'Failed to save purchase');
-            return data;
+                body: JSON.stringify({ action: 'updateStockInward', payload: payload })
+            }).catch(e => console.error("Stock inward failed", e));
+
+            return { success: true, id: docRef.id };
         } catch (error) {
             console.error("Save Purchase Error:", error);
             throw error;
         }
     },
-    
+
     async createItem(payload) {
         try {
             const res = await fetch(CONFIG.API_URL, {
@@ -57,38 +84,34 @@ const API = {
         }
     },
 
-    async inwardStock(payload) {
-        try {
-            const res = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'inwardStock', payload: payload })
-            });
-            const data = await res.json();
-            if(data && data.success === false) throw new Error(data.message || 'Failed to inward stock');
-            return data;
-        } catch (error) {
-            console.error("Inward Error:", error);
-            throw error;
-        }
-    },
-
     async getRegisters() {
         try {
-            const res = await fetch(`${CONFIG.API_URL}?action=getRegisters`);
-            return await res.json();
+            const snapshot = await db.collection('pos_vouchers').orderBy('timestamp', 'desc').get();
+            let registers = [];
+            snapshot.forEach(doc => {
+                let data = doc.data();
+                registers.push({
+                    firebaseId: doc.id,
+                    id: data.invoiceNo,
+                    date: data.date,
+                    type: data.type,
+                    party: data.customer,
+                    mode: data.paymentMode,
+                    total: data.items.reduce((sum, item) => sum + (item.amount || 0), 0),
+                    items: data.items
+                });
+            });
+            return registers;
         } catch (error) {
             console.error("Fetch Registers Error:", error);
             throw error;
         }
     },
 
-    async deleteVoucher(id) {
+    async deleteVoucher(firebaseId) {
         try {
-            const res = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'deleteVoucher', payload: { id: id } })
-            });
-            return await res.json();
+            await db.collection('pos_vouchers').doc(firebaseId).delete();
+            return { success: true };
         } catch (error) {
             console.error("Delete Voucher Error:", error);
             throw error;
@@ -97,16 +120,13 @@ const API = {
 
     resolveImage(url) {
         if (!url) return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-        
         if (url.startsWith('http')) return url;
-        
         if (url.includes('Products_Images/')) {
             const appName = encodeURIComponent("LiveInventroy-257487838");
             const tableName = encodeURIComponent("Products");
             const safeFileName = url.split('/').map(encodeURIComponent).join('/');
             return `https://www.appsheet.com/template/gettablefileurl?appName=${appName}&tableName=${tableName}&fileName=${safeFileName}`;
         }
-        
         const icAppName = encodeURIComponent("IceCreamInventory-257487838");
         const icTableName = encodeURIComponent("menu");
         return `https://www.appsheet.com/template/gettablefileurl?appName=${icAppName}&tableName=${icTableName}&fileName=${url}`;
