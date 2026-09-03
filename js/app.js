@@ -383,13 +383,26 @@ const CartApp = {
         const searchBox = document.getElementById('posSearch');
         if (searchBox) searchBox.focus();
     },
+    
     updateField(index, field, val) {
         const item = this.items[index];
         if(item) {
-            item[field] = field === 'qty' ? (parseInt(val, 10) || 1) : (parseFloat(val) || 0);
+            if (field === 'qty') {
+                let newQty = parseFloat(val);
+                if (isNaN(newQty) || newQty <= 0) newQty = 1;
+                
+                // Force whole numbers for normal items, allow decimals for BOGO
+                if (!item.itemName.includes('700+700')) {
+                    newQty = Math.floor(newQty);
+                }
+                item[field] = newQty;
+            } else {
+                item[field] = parseFloat(val) || 0;
+            }
             this.render();
         }
     },
+    
     removeItem(index) {
         this.items.splice(index, 1);
         this.render();
@@ -409,10 +422,15 @@ const CartApp = {
             subtotal += net;
             totalItems += c.qty;
 
+            // NEW: Check if it's a BOGO pack
+            const isPromo = c.itemName.includes('700+700');
+            const stepVal = isPromo ? "0.5" : "1";
+            const minVal = isPromo ? "0.5" : "1";
+
             tbody.innerHTML += `
                 <li class="cart-item">
                     <div style="flex: 2; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${c.itemName}">${c.itemName}</div>
-                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField(${index}, 'qty', this.value)" min="1"></div>
+                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField(${index}, 'qty', this.value)" min="${minVal}" step="${stepVal}"></div>
                     <div style="flex: 1;"><input type="number" class="cart-item-input" value="${c.rate}" onchange="CartApp.updateField(${index}, 'rate', this.value)" min="0" step="0.01"></div>
                     <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.discountPerc}" onchange="CartApp.updateField(${index}, 'discountPerc', this.value)" min="0" max="100" step="0.01"></div>
                     <div style="flex: 1; font-weight:bold; text-align:right;">₹${net.toFixed(2)}</div>
