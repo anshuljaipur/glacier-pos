@@ -611,7 +611,45 @@ async function saveNewItem() {
     }
 }
 
+// --- MOBILE CAMERA SCANNER LOGIC ---
+let html5QrcodeScanner = null;
 
+function startMobileScanner() {
+    document.getElementById('scannerModal').classList.add('active');
+    
+    html5QrcodeScanner = new Html5Qrcode("reader");
+    html5QrcodeScanner.start(
+        { facingMode: "environment" }, // Uses the back camera
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        (decodedText) => {
+            // On Success: Stop camera, find item, add to cart
+            stopMobileScanner();
+            
+            const scanVal = decodedText.trim().toLowerCase();
+            const prod = InventoryApp.products.find(p => p.barcode && p.barcode.toString().trim().toLowerCase() === scanVal);
+            
+            if (prod) {
+                CartApp.addItem(prod);
+                if(document.getElementById('posSearch')) document.getElementById('posSearch').value = '';
+                InventoryApp.filterItems();
+            } else {
+                alert(`Barcode [${decodedText}] not found in database!`);
+            }
+        },
+        (errorMessage) => { /* Ignore background scanning noise */ }
+    ).catch(err => {
+        alert("Camera permission denied or error: " + err);
+        stopMobileScanner();
+    });
+}
+
+function stopMobileScanner() {
+    document.getElementById('scannerModal').classList.remove('active');
+    if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().catch(e => console.log(e));
+        html5QrcodeScanner = null;
+    }
+}
 // --- INITIALIZATION ---
 window.onload = () => {
     // --- Search & Barcode Scanner Events ---
@@ -656,3 +694,4 @@ window.onload = () => {
     InventoryApp.sync();
     document.getElementById('posSearch')?.focus();
 };
+
