@@ -33,15 +33,18 @@ const API = {
             payload.timestamp = firebase.firestore.FieldValue.serverTimestamp();
             payload.type = 'Sale';
             
+            // 1. Instant save to Firebase (takes ~50ms)
             const docRef = await db.collection('pos_vouchers').add(payload);
             
-            // AWAIT the fetch so the browser print window doesn't cancel it
-            await fetch(CONFIG.API_URL, {
+            // 2. Background update to Google Sheets (NO "await" + keepalive)
+            fetch(CONFIG.API_URL, {
                 method: 'POST',
                 redirect: 'follow',
+                keepalive: true, // Forces browser to finish this even if print dialog opens
                 body: JSON.stringify({ action: 'updateStock', payload: payload })
-            });
+            }).catch(e => console.error("Background stock sync failed", e));
 
+            // Instantly returns success to UI so print dialog opens immediately
             return { success: true, id: docRef.id };
         } catch (error) {
             console.error("Save Sale Error:", error);
@@ -57,12 +60,13 @@ const API = {
             
             const docRef = await db.collection('pos_vouchers').add(payload);
 
-            // AWAIT the fetch so the browser doesn't cancel it
-            await fetch(CONFIG.API_URL, {
+            // Background update to Google Sheets (NO "await" + keepalive)
+            fetch(CONFIG.API_URL, {
                 method: 'POST',
                 redirect: 'follow',
+                keepalive: true, 
                 body: JSON.stringify({ action: 'updateStockInward', payload: payload })
-            });
+            }).catch(e => console.error("Background stock sync failed", e));
 
             return { success: true, id: docRef.id };
         } catch (error) {
