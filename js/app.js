@@ -148,6 +148,22 @@ const InventoryApp = {
         if(document.getElementById('posSearch')) document.getElementById('posSearch').focus();
     },
 
+    extractFilters() {
+        // Extracts unique categories and brands from your Google Sheet to build the POS filters
+        const categories = [...new Set(this.products.map(p => p.category).filter(Boolean))].sort();
+        const brands = [...new Set(this.products.map(p => p.brandname).filter(Boolean))].sort();
+        
+        const catSelect = document.getElementById('filterCategory');
+        const brandSelect = document.getElementById('filterBrand');
+        
+        if (catSelect) {
+            catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+        if (brandSelect) {
+            brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+        }
+    },
+    
     filterItems() {
         const searchBox = document.getElementById('posSearch');
         const rawQuery = searchBox ? searchBox.value : '';
