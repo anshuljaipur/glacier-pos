@@ -114,9 +114,33 @@ const API = {
         }
     },
 
-    async deleteVoucher(firebaseId) {
+   async deleteVoucher(voucher) {
         try {
-            await db.collection('pos_vouchers').doc(firebaseId).delete();
+            // 1. Delete the invoice from Firebase instantly
+            await db.collection('pos_vouchers').doc(voucher.firebaseId).delete();
+            
+            // 2. Determine reversal math: 
+            // Deleting a Purchase means deducting stock (-1). Deleting a Sale means adding stock (+1).
+            const reversalAction = voucher.type === 'Purchase' ? 'updateStock' : 'updateStockInward';
+            
+            // 3. Strip price data so reversing a Sale doesn't accidentally overwrite your Purchase Rates
+            const safeItems = voucher.items.map(i => ({ 
+                barcode: i.barcode, 
+                itemName: i.itemName || i.itemname, 
+                quantity: i.quantity || i.qty 
+            }));
+
+            // 4. Send background reversal to Google Sheets
+            fetch(CONFIG.API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                keepalive: true,
+                body: JSON.stringify({ 
+                    action: reversalAction, 
+                    payload: { items: safeItems } 
+                })
+            }).catch(e => console.error("Background stock reversal failed", e));
+
             return { success: true };
         } catch (error) {
             console.error("Delete Voucher Error:", error);
