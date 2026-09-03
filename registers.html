@@ -272,13 +272,19 @@
                 document.getElementById('printWrapper').classList.remove('active');
             },
 
-            async deleteVoucher(firebaseId) {
-                if(!confirm(`Are you sure you want to permanently delete this Invoice?`)) return;
+           async deleteVoucher(firebaseId) {
+                if(!confirm(`Are you sure you want to permanently delete this Invoice and reverse the stock?`)) return;
+                
                 try {
-                    await API.deleteVoucher(firebaseId);
+                    // Grab the full invoice data so the API knows what items to reverse
+                    const voucher = this.allVouchers.find(v => v.firebaseId === firebaseId);
+                    if(!voucher) return;
+
+                    await API.deleteVoucher(voucher);
+                    
                     this.allVouchers = this.allVouchers.filter(v => v.firebaseId !== firebaseId);
                     this.filterData();
-                    alert("Voucher deleted successfully.");
+                    alert("Voucher deleted and stock reversed successfully.");
                 } catch(e) {
                     alert("Failed to delete voucher.");
                 }
