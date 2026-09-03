@@ -14,15 +14,29 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 
 const API = {
-    async getInventory() {
+async getInventory() {
+        // Create a 15-second timeout controller
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         try {
-            const res = await fetch(`${CONFIG.API_URL}?action=getInventory`);
+            const res = await fetch(`${CONFIG.API_URL}?action=getInventory`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId); // Clear timeout if successful
+            
             const data = await res.json();
             if (Array.isArray(data)) return data;
             if (data && data.success) return data.products;
             throw new Error(data.message || 'Invalid data format');
         } catch (error) {
+            clearTimeout(timeoutId);
             console.error("Inventory Sync Error:", error);
+            
+            // Check if it was our timeout that stopped it
+            if (error.name === 'AbortError') {
+                throw new Error("Sync timed out. Google is slow or offline.");
+            }
             throw error;
         }
     },
