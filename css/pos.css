@@ -277,3 +277,40 @@ body { background-color: var(--bg-main); color: var(--text-main); height: 100vh;
     align-items: center;
     background: #f8fafc;
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .pos-layout {
+        display: flex !important;
+        flex-direction: column !important;
+        height: auto !important;
+    }
+    .grid-area {
+        height: 55vh; /* Gives the top half to products */
+        border-bottom: 2px solid var(--border-dark);
+    }
+    .cart-area {
+        height: 45vh; /* Bottom half to cart */
+        border-left: none;
+    }
+    .topbar {
+        flex-direction: column;
+        height: auto;
+        padding: 10px;
+        gap: 10px;
+    }
+    .topbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+        justify-content: space-between;
+    }
+    .search-row {
+        flex-wrap: wrap;
+    }
+    .modal-box {
+        width: 95% !important;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+}
