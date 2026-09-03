@@ -59,28 +59,39 @@ const InventoryApp = {
     chunkSize: 40,
     activeTag: '',
 
-    async sync() {
-        try {
-            const btn = document.getElementById('network-status');
-            if(btn) btn.textContent = "↻ Syncing...";
-            
-            const rawProducts = await API.getInventory();
-            
-            // Normalize names for perfect filtering
-            this.products = rawProducts.map(p => ({
-                ...p,
-                itemname: toTitleCase(p.itemname),
-                brandname: toTitleCase(p.brandname),
-                category: toTitleCase(p.category)
-            }));
+    sync: async function() {
+        const btn = document.getElementById('network-status');
+        if (btn) {
+            btn.textContent = "↻ Syncing...";
+            btn.style.color = "white";
+            btn.style.background = "#f59e0b"; // Warning orange
+            btn.disabled = true;
+        }
 
-            if(btn) btn.textContent = "↻ Sync Data";
-            this.populateFilters();
-            this.filterItems(); 
-        } catch (err) {
-            const btn = document.getElementById('network-status');
-            if(btn) btn.textContent = "⚠ Offline Mode";
-            console.error(err);
+        try {
+            const data = await API.getInventory();
+            this.products = data;
+            this.extractFilters();
+            this.filterItems();
+            
+            if (btn) {
+                btn.textContent = "↻ Sync Data";
+                btn.style.background = "#10b981"; // Success green
+                setTimeout(() => btn.style.background = "", 3000); // Revert to normal dark theme after 3s
+            }
+        } catch (error) {
+            console.error("Sync failed:", error);
+            if (btn) {
+                btn.textContent = "⚠️ Sync Failed (Retry)";
+                btn.style.background = "#ef4444"; // Error red
+            }
+            // If we have 0 products, alert the user. If we already have products loaded, 
+            // fail silently so the cashier can keep ringing up items from memory.
+            if (this.products.length === 0) {
+                alert("Failed to load inventory. Please check your internet connection and try again.");
+            }
+        } finally {
+            if (btn) btn.disabled = false;
         }
     },
 
