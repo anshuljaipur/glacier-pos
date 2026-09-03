@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLACIER ERP - Retail POS</title>
     <link rel="stylesheet" href="css/pos.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
     <div class="app-container">
@@ -30,6 +31,8 @@
                         <div class="search-input-wrapper">
                             <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
                             <button id="searchClearBtn" class="btn-clear-search" onclick="InventoryApp.clearFilters()" title="Clear Search & Filters">✖ CLEAR</button>
+                            <!-- NEW CAMERA BUTTON -->
+                            <button class="btn" style="background: #374151; color: white; padding: 0 12px; font-size: 16px; border-radius: 0 4px 4px 0;" onclick="startMobileScanner()" title="Scan with Camera">📷</button>
                         </div>
                         <button class="btn btn-primary btn-new-item" onclick="openQuickAdd()">+ New Item</button>
                     </div>
@@ -295,7 +298,17 @@
             </div>
         </div>
     </div>
-
+<!-- Camera Scanner Modal -->
+    <div id="scannerModal" class="modal-overlay no-print">
+        <div class="modal-box" style="width: 90%; max-width: 400px; padding: 10px;">
+            <div class="modal-header">
+                <span>📷 Scan Barcode</span>
+                <span class="close-modal-icon" onclick="stopMobileScanner()" style="cursor:pointer;">×</span>
+            </div>
+            <div id="reader" style="width: 100%; min-height: 250px; margin-top: 10px;"></div>
+            <p style="text-align: center; font-size: 12px; color: gray; margin-top: 10px;">Point your camera at a barcode.</p>
+        </div>
+    </div>
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
