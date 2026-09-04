@@ -56,24 +56,25 @@
 
                 <!-- Right Panel: Cart / Billing -->
                 <div class="cart-area">
-                <div class="cart-tabs" style="display: flex; justify-content: space-between; align-items: center;">
+                <!-- CART HEADER & ACTIONS -->
+                    <div class="cart-tabs" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px;">
                         <button class="cart-tab active">Main Bill</button>
-                        <div class="cart-actions-group">
-                            <!-- NEW: Return Mode Toggle -->
-                            <label style="font-size: 11px; font-weight: bold; color: #ef4444; display: flex; align-items: center; gap: 4px; cursor: pointer; padding-right: 10px; border-right: 1px solid #ccc; margin-right: 5px;">
+                        <div class="cart-actions-group" style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                            <label style="font-size: 11px; font-weight: bold; color: #ef4444; display: flex; align-items: center; gap: 4px; cursor: pointer; padding-right: 5px; border-right: 1px solid #ccc;">
                                 <input type="checkbox" id="chkReturnMode"> ↩️ Return Mode
                             </label>
                             
-                            <button class="btn-cart-action" onclick="CartApp.holdBill()" title="Hold Current Bill">⏸ Hold</button>
-                            <button class="btn-cart-action" onclick="CartApp.openRecallModal()" title="Recall Held Bills">📂 Recall</button>
-                            <button class="btn-cart-action" onclick="CartApp.clearCart()" title="Clear Cart" style="color: #ef4444;">🗑️ Clear</button>
+                            <button class="btn-cart-action" onclick="CartApp.holdBill()">⏸ Hold</button>
+                            <button class="btn-cart-action" onclick="CartApp.openRecallModal()">📂 Recall</button>
+                            <button class="btn-cart-action" onclick="CartApp.clearCart()" style="color: #ef4444;">🗑️ Clear</button>
                         </div>
+                    </div>
 
-                    <div class="cart-header-inputs">
-                        <div class="flex-row">
-                            <input type="text" id="posCustomer" class="cart-input-field" style="flex: 1.5;" placeholder="Customer Name (Optional)">
-                            <input type="text" id="posMobile" class="cart-input-field" style="flex: 1;" placeholder="Mobile Number">
-                        </div>
+                    <!-- CUSTOMER INFO ROW -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; margin-top: 10px;">
+                        <input type="text" id="posCustomer" placeholder="Customer Name (Optional)" class="cart-input" style="flex: 1;">
+                        <input type="tel" id="posMobile" placeholder="Mobile Number" class="cart-input" style="flex: 1;">
+                    </div>
                     </div>
 
                     <div class="cart-table">
