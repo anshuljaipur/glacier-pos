@@ -11,7 +11,6 @@ document.addEventListener('keydown', (e) => {
     if(e.key === 'F4') { e.preventDefault(); CartApp.openPaymentPopup(); return; }
     if (e.altKey && e.code === 'KeyC') { e.preventDefault(); openQuickAdd(); return; }
     
-    // NEW: Alt+S focuses and selects text in the search bar
     if (e.altKey && e.code === 'KeyS') { 
         e.preventDefault(); 
         const searchBox = document.getElementById('posSearch');
@@ -31,14 +30,13 @@ document.addEventListener('keydown', (e) => {
         return; 
     }
     
-    // Barcode emulation
     if(e.target.tagName === 'INPUT' && e.target.id !== 'posSearch') return;
     if(e.key.length === 1) {
         scanBuffer += e.key;
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             if(scanBuffer.length >= 3) {
-                const prod = InventoryApp.products.find(p => p.barcode && p.barcode.toString().trim() === scanBuffer.trim());
+                const prod = InventoryApp.products.find(p => p.barcode && p.barcode.toString().trim().toLowerCase() === scanBuffer.trim().toLowerCase());
                 if(prod) {
                     CartApp.addItem(prod);
                     const searchBox = document.getElementById('posSearch');
@@ -49,7 +47,6 @@ document.addEventListener('keydown', (e) => {
         }, 50);
     }
 });
-
 
 // --- INVENTORY & SMART SEARCH LOGIC ---
 const InventoryApp = {
@@ -64,7 +61,7 @@ const InventoryApp = {
         if (btn) {
             btn.textContent = "↻ Syncing...";
             btn.style.color = "white";
-            btn.style.background = "#f59e0b"; // Warning orange
+            btn.style.background = "#f59e0b";
             btn.disabled = true;
         }
 
@@ -76,17 +73,15 @@ const InventoryApp = {
             
             if (btn) {
                 btn.textContent = "↻ Sync Data";
-                btn.style.background = "#10b981"; // Success green
-                setTimeout(() => btn.style.background = "", 3000); // Revert to normal dark theme after 3s
+                btn.style.background = "#10b981";
+                setTimeout(() => btn.style.background = "", 3000);
             }
         } catch (error) {
             console.error("Sync failed:", error);
             if (btn) {
                 btn.textContent = "⚠️ Sync Failed (Retry)";
-                btn.style.background = "#ef4444"; // Error red
+                btn.style.background = "#ef4444";
             }
-            // If we have 0 products, alert the user. If we already have products loaded, 
-            // fail silently so the cashier can keep ringing up items from memory.
             if (this.products.length === 0) {
                 alert("Failed to load inventory. Please check your internet connection and try again.");
             }
@@ -95,14 +90,23 @@ const InventoryApp = {
         }
     },
 
-    populateFilters() {
-        const cats = [...new Set(this.products.map(p => p.category))].filter(Boolean).sort((a, b) => a.localeCompare(b));
-        const brands = [...new Set(this.products.map(p => p.brandname))].filter(Boolean).sort((a, b) => a.localeCompare(b));
+    extractFilters() {
+        const categories = [...new Set(this.products.map(p => p.category).filter(Boolean))].sort();
+        const brands = [...new Set(this.products.map(p => p.brandname).filter(Boolean))].sort();
         
         const catSelect = document.getElementById('filterCategory');
         const brandSelect = document.getElementById('filterBrand');
-        if(catSelect) catSelect.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
-        if(brandSelect) brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+        
+        if (catSelect) {
+            catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+        if (brandSelect) {
+            brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+        }
+    },
+
+    populateFilters() {
+        this.extractFilters();
 
         let allTags = new Set();
         this.products.forEach(p => {
@@ -146,22 +150,6 @@ const InventoryApp = {
         this.populateFilters();
         this.filterItems();
         if(document.getElementById('posSearch')) document.getElementById('posSearch').focus();
-    },
-
-    extractFilters() {
-        // Extracts unique categories and brands from your Google Sheet to build the POS filters
-        const categories = [...new Set(this.products.map(p => p.category).filter(Boolean))].sort();
-        const brands = [...new Set(this.products.map(p => p.brandname).filter(Boolean))].sort();
-        
-        const catSelect = document.getElementById('filterCategory');
-        const brandSelect = document.getElementById('filterBrand');
-        
-        if (catSelect) {
-            catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
-        }
-        if (brandSelect) {
-            brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
-        }
     },
     
     filterItems() {
@@ -211,6 +199,7 @@ const InventoryApp = {
         const grid = document.getElementById('itemGrid');
         if(grid) grid.innerHTML = '';
         this.loadMoreItems();
+        this.populateFilters();
     },
 
     loadMoreItems() {
@@ -242,7 +231,7 @@ const InventoryApp = {
                     <img src="${API.resolveImage(p.image)}" class="item-img-tag" loading="lazy" onerror="this.src='${API.resolveImage('')}'">
                 </div>
                 <div class="item-details">
-                    <div class="item-name">${p.itemname}</div>
+                    <div class="item-name" title="${p.itemname}">${p.itemname}</div>
                     <div class="item-price">₹${rate.toFixed(2)}</div>
                 </div>
             `;
@@ -261,12 +250,10 @@ const InventoryApp = {
     }
 };
 
-
 // --- CART LOGIC ---
 const CartApp = {
     items: [],
 
-    // --- NEW: CLEAR & HOLD BILL LOGIC ---
     clearCart() {
         if (this.items.length === 0) return;
         if (confirm("Are you sure you want to completely clear the cart?")) {
@@ -300,7 +287,6 @@ const CartApp = {
         holds.push(bill);
         localStorage.setItem('glacier_holds', JSON.stringify(holds));
         
-        // Clear cart silently after holding
         this.items = [];
         if(document.getElementById('posCustomer')) document.getElementById('posCustomer').value = '';
         if(document.getElementById('posMobile')) document.getElementById('posMobile').value = '';
@@ -347,7 +333,6 @@ const CartApp = {
         if(document.getElementById('billDiscountType')) document.getElementById('billDiscountType').value = bill.discountType;
         if(document.getElementById('billDiscountValue')) document.getElementById('billDiscountValue').value = bill.discountValue;
         
-        // Remove from holds once resumed
         holds.splice(billIndex, 1);
         localStorage.setItem('glacier_holds', JSON.stringify(holds));
         
@@ -359,10 +344,8 @@ const CartApp = {
         let holds = JSON.parse(localStorage.getItem('glacier_holds') || '[]');
         holds = holds.filter(h => h.id !== id);
         localStorage.setItem('glacier_holds', JSON.stringify(holds));
-        this.openRecallModal(); // Refresh UI list immediately
+        this.openRecallModal(); 
     },
-    // --- END NEW LOGIC ---
-
     
     addItem(product) {
         const existing = this.items.find(i => i.barcode === product.barcode && i.itemName === product.itemname);
@@ -379,11 +362,9 @@ const CartApp = {
         }
         this.render();
         
-        // NEW: Force focus back to search bar instantly after clicking an item
         const searchBox = document.getElementById('posSearch');
         if (searchBox) searchBox.focus();
     },
-    
     updateField(index, field, val) {
         const item = this.items[index];
         if(item) {
@@ -391,7 +372,6 @@ const CartApp = {
                 let newQty = parseFloat(val);
                 if (isNaN(newQty) || newQty <= 0) newQty = 1;
                 
-                // Force whole numbers for normal items, allow decimals for BOGO
                 if (!item.itemName.includes('700+700')) {
                     newQty = Math.floor(newQty);
                 }
@@ -402,7 +382,6 @@ const CartApp = {
             this.render();
         }
     },
-    
     removeItem(index) {
         this.items.splice(index, 1);
         this.render();
@@ -422,7 +401,6 @@ const CartApp = {
             subtotal += net;
             totalItems += c.qty;
 
-            // NEW: Check if it's a BOGO pack
             const isPromo = c.itemName.includes('700+700');
             const stepVal = isPromo ? "0.5" : "1";
             const minVal = isPromo ? "0.5" : "1";
@@ -484,14 +462,28 @@ const CartApp = {
         else if (balance < 0) { lbl.innerText = "Change"; lbl.style.color = "var(--success)"; box.style.color = "var(--success)"; box.value = Math.abs(balance).toFixed(2); } 
         else { lbl.innerText = "Settled"; lbl.style.color = "var(--text-main)"; box.style.color = "var(--text-main)"; box.value = "0.00"; }
     },
+    
+    resetPOS() {
+        document.getElementById('paymentModal')?.classList.remove('active');
+        document.getElementById('printWrapper')?.classList.remove('active');
+        this.items = [];
+        if(document.getElementById('posCustomer')) document.getElementById('posCustomer').value = '';
+        if(document.getElementById('posMobile')) document.getElementById('posMobile').value = '';
+        if(document.getElementById('billDiscountValue')) document.getElementById('billDiscountValue').value = '0';
+        this.render();
+        InventoryApp.sync();
+    },
+
     isCheckingOut: false,
     async checkout() {
         if (this.isCheckingOut) return; 
         this.isCheckingOut = true;
         
         const btn = document.getElementById('btn-save-sale');
-        btn.textContent = 'Processing...';
-        btn.disabled = true;
+        if (btn) {
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+        }
 
         const cash = parseFloat(document.getElementById('payCash').value) || 0;
         const upi = parseFloat(document.getElementById('payUPI').value) || 0;
@@ -517,13 +509,28 @@ const CartApp = {
 
         try {
             await API.saveSale(payload);
-            this.triggerPrint(payload);
+            
+            payload.items.forEach(cartItem => {
+                const invItem = InventoryApp.products.find(p => p.itemname === cartItem.itemName);
+                if (invItem) invItem.quantity = Math.max(0, invItem.quantity - cartItem.quantity);
+            });
+            InventoryApp.filterItems(); 
+            
+            const printChecked = document.getElementById('chkPrintReceipt')?.checked ?? true;
+            if (printChecked) {
+                this.triggerPrint(payload);
+            } else {
+                this.resetPOS();
+            }
+            
         } catch (error) {
             alert('Checkout failed: ' + error.message);
         } finally {
             this.isCheckingOut = false;
-            btn.textContent = 'SAVE & PRINT';
-            btn.disabled = false;
+            if (btn) {
+                btn.textContent = 'SAVE & PRINT';
+                btn.disabled = false;
+            }
         }
     },
     triggerPrint(payload) {
@@ -560,13 +567,7 @@ const CartApp = {
         setTimeout(() => window.print(), 300);
     },
     closePrintAndReset() {
-        document.getElementById('printWrapper').classList.remove('active');
-        this.items = [];
-        if(document.getElementById('posCustomer')) document.getElementById('posCustomer').value = 'Cash Walk-in';
-        if(document.getElementById('posMobile')) document.getElementById('posMobile').value = '';
-        if(document.getElementById('billDiscountValue')) document.getElementById('billDiscountValue').value = '0';
-        this.render();
-        InventoryApp.sync();
+        this.resetPOS();
     }
 };
 
@@ -664,10 +665,9 @@ function startMobileScanner() {
     
     html5QrcodeScanner = new Html5Qrcode("reader");
     html5QrcodeScanner.start(
-        { facingMode: "environment" }, // Uses the back camera
+        { facingMode: "environment" }, 
         { fps: 10, qrbox: { width: 250, height: 150 } },
         (decodedText) => {
-            // On Success: Stop camera, find item, add to cart
             stopMobileScanner();
             
             const scanVal = decodedText.trim().toLowerCase();
@@ -681,7 +681,7 @@ function startMobileScanner() {
                 alert(`Barcode [${decodedText}] not found in database!`);
             }
         },
-        (errorMessage) => { /* Ignore background scanning noise */ }
+        (errorMessage) => { }
     ).catch(err => {
         alert("Camera permission denied or error: " + err);
         stopMobileScanner();
@@ -695,48 +695,52 @@ function stopMobileScanner() {
         html5QrcodeScanner = null;
     }
 }
+
 // --- INITIALIZATION ---
 window.onload = () => {
-    // --- Search & Barcode Scanner Events ---
     const searchBox = document.getElementById('posSearch');
     if (searchBox) {
         searchBox.addEventListener('input', () => InventoryApp.filterItems());
         
-        // Intercept Barcode Scanner's "Enter" key
         searchBox.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                e.preventDefault(); // Prevent form submission
+                e.preventDefault(); 
                 
                 const scanVal = searchBox.value.trim().toLowerCase();
                 if (!scanVal) return;
                 
-                // Find exact barcode match
                 const prod = InventoryApp.products.find(p => p.barcode && p.barcode.toString().trim().toLowerCase() === scanVal);
                 
                 if (prod) {
                     CartApp.addItem(prod);
-                    searchBox.value = ''; // Clear search bar
-                    InventoryApp.filterItems(); // Reset grid visually
+                    searchBox.value = ''; 
+                    InventoryApp.filterItems(); 
                 }
-                // Optional: You can add an else{} statement here to play an error beep if the barcode isn't found
             }
         });
     }
 
-    // --- Standard Filter Events ---
     document.getElementById('filterCategory')?.addEventListener('change', () => InventoryApp.filterItems());
     document.getElementById('filterBrand')?.addEventListener('change', () => InventoryApp.filterItems());
     document.getElementById('filterMinPrice')?.addEventListener('input', () => InventoryApp.filterItems());
     document.getElementById('filterMaxPrice')?.addEventListener('input', () => InventoryApp.filterItems());
     
-    // --- Cart & Payment Events ---
     document.getElementById('billDiscountValue')?.addEventListener('input', () => CartApp.render());
     document.getElementById('billDiscountType')?.addEventListener('change', () => CartApp.render());
+    
     ['payCash', 'payUPI', 'payCard'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', () => CartApp.calcSplitPay());
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => CartApp.calcSplitPay());
+            el.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    CartApp.checkout();
+                }
+            });
+        }
     });
 
     InventoryApp.sync();
     document.getElementById('posSearch')?.focus();
 };
-
