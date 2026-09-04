@@ -29,7 +29,7 @@
                 <div class="grid-area">
                     <div class="search-row">
                         <div class="search-input-wrapper">
-                            <input type="text" id="posSearch" autocomplete="off" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
+                            <input type="text" id="posSearch" placeholder="Search by Name, Tag, or Barcode... (Alt+S)">
                             <button id="searchClearBtn" class="btn-clear-search" onclick="InventoryApp.clearFilters()" title="Clear Search & Filters">✖ CLEAR</button>
                             <!-- NEW CAMERA BUTTON -->
                             <button class="btn" style="background: #374151; color: white; padding: 0 12px; font-size: 16px; border-radius: 0 4px 4px 0;" onclick="startMobileScanner()" title="Scan with Camera">📷</button>
@@ -59,15 +59,11 @@
                 <div class="cart-tabs" style="display: flex; justify-content: space-between; align-items: center;">
                         <button class="cart-tab active">Main Bill</button>
                         <div class="cart-actions-group">
-                            <!-- NEW: Return Mode Toggle -->
-                            <label style="font-size: 11px; font-weight: bold; color: #ef4444; display: flex; align-items: center; gap: 4px; cursor: pointer; padding-right: 10px; border-right: 1px solid #ccc; margin-right: 5px;">
-                                <input type="checkbox" id="chkReturnMode"> ↩️ Return Mode
-                            </label>
-                            
                             <button class="btn-cart-action" onclick="CartApp.holdBill()" title="Hold Current Bill">⏸ Hold</button>
                             <button class="btn-cart-action" onclick="CartApp.openRecallModal()" title="Recall Held Bills">📂 Recall</button>
                             <button class="btn-cart-action" onclick="CartApp.clearCart()" title="Clear Cart" style="color: #ef4444;">🗑️ Clear</button>
                         </div>
+                    </div>
 
                     <div class="cart-header-inputs">
                         <div class="flex-row">
