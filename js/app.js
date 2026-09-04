@@ -431,10 +431,12 @@ this.items.forEach((c, index) => {
         const finalPayable = Math.round(netBeforeRound);
         const roundOff = finalPayable - netBeforeRound;
 
-        if(document.getElementById('cartQtySummary')) document.getElementById('cartQtySummary').innerText = `${totalItems} Qty (${this.items.length} Types)`;
+       if(document.getElementById('cartQtySummary')) document.getElementById('cartQtySummary').innerText = `${totalItems} Qty (${this.items.length} Types)`;
         if(document.getElementById('cartSubtotal')) document.getElementById('cartSubtotal').innerText = `₹${subtotal.toFixed(2)}`;
         if(document.getElementById('cartRoundOff')) document.getElementById('cartRoundOff').innerText = `${roundOff > 0 ? '+' : ''}${roundOff.toFixed(2)}`;
-        if(document.getElementById('cartGrandTotal')) document.getElementById('cartGrandTotal').innerText = `₹${Math.max(0, finalPayable).toFixed(2)}`;
+        
+        // FIX: Removed Math.max(0, ...) so refunds explicitly show as negative numbers (e.g., ₹-100.00)
+        if(document.getElementById('cartGrandTotal')) document.getElementById('cartGrandTotal').innerText = `₹${finalPayable.toFixed(2)}`;
         
         if(document.getElementById('paymentModal') && document.getElementById('paymentModal').classList.contains('active')) this.calcSplitPay();
     },
