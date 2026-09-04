@@ -144,6 +144,12 @@
                     <input type="text" id="payBalance" class="filter-input" style="flex: 1; font-size: 20px; font-weight: bold; background: #f9fafb;" disabled value="0.00">
                 </div>
             </div>
+            <!-- Add this right above your payment modal buttons -->
+            <div style="margin-top: 15px; margin-bottom: 15px; text-align: center;">
+                <label style="cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-main);">
+                    <input type="checkbox" id="chkPrintReceipt" checked> 🖨️ Print Receipt after Saving
+                </label>
+            </div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-danger-outline" style="flex: 1; padding: 15px; font-weight: bold;" onclick="CartApp.closePaymentPopup()">Cancel (Esc)</button>
                 <button class="btn btn-success" id="btn-save-sale" style="flex: 2; font-size: 18px; padding: 15px; font-weight: bold;" onclick="CartApp.checkout()">SAVE & PRINT</button>
