@@ -348,14 +348,18 @@ const CartApp = {
     },
     
     addItem(product) {
+        // NEW: Check if return mode is active to default to negative quantity
+        const isReturn = document.getElementById('chkReturnMode')?.checked;
+        const qtyToAdd = isReturn ? -1 : 1;
+
         const existing = this.items.find(i => i.barcode === product.barcode && i.itemName === product.itemname);
         if (existing) {
-            existing.qty += 1;
+            existing.qty += qtyToAdd;
         } else {
             this.items.push({
                 barcode: product.barcode,
                 itemName: product.itemname,
-                qty: 1,
+                qty: qtyToAdd, // Applies -1 or 1
                 rate: parseFloat(product.sellingrate),
                 discountPerc: 0
             });
@@ -365,15 +369,16 @@ const CartApp = {
         const searchBox = document.getElementById('posSearch');
         if (searchBox) searchBox.focus();
     },
+
     updateField(index, field, val) {
         const item = this.items[index];
         if(item) {
             if (field === 'qty') {
                 let newQty = parseFloat(val);
-                if (isNaN(newQty) || newQty <= 0) newQty = 1;
+                if (isNaN(newQty)) newQty = 1;
                 
                 if (!item.itemName.includes('700+700')) {
-                    newQty = Math.floor(newQty);
+                    newQty = Math.trunc(newQty); // Keeps whole numbers but allows negatives
                 }
                 item[field] = newQty;
             } else {
@@ -382,6 +387,7 @@ const CartApp = {
             this.render();
         }
     },
+    
     removeItem(index) {
         this.items.splice(index, 1);
         this.render();
@@ -394,7 +400,7 @@ const CartApp = {
         let subtotal = 0;
         let totalItems = 0;
 
-        this.items.forEach((c, index) => {
+this.items.forEach((c, index) => {
             const gross = c.qty * c.rate;
             const disAmt = gross * (c.discountPerc / 100);
             const net = gross - disAmt;
@@ -403,12 +409,12 @@ const CartApp = {
 
             const isPromo = c.itemName.includes('700+700');
             const stepVal = isPromo ? "0.5" : "1";
-            const minVal = isPromo ? "0.5" : "1";
+            // Removed the min="1" limit below to allow free negative scrolling
 
             tbody.innerHTML += `
                 <li class="cart-item">
                     <div style="flex: 2; font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="${c.itemName}">${c.itemName}</div>
-                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField(${index}, 'qty', this.value)" min="${minVal}" step="${stepVal}"></div>
+                    <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.qty}" onchange="CartApp.updateField(${index}, 'qty', this.value)" step="${stepVal}"></div>
                     <div style="flex: 1;"><input type="number" class="cart-item-input" value="${c.rate}" onchange="CartApp.updateField(${index}, 'rate', this.value)" min="0" step="0.01"></div>
                     <div style="flex: 0.8;"><input type="number" class="cart-item-input" value="${c.discountPerc}" onchange="CartApp.updateField(${index}, 'discountPerc', this.value)" min="0" max="100" step="0.01"></div>
                     <div style="flex: 1; font-weight:bold; text-align:right;">₹${net.toFixed(2)}</div>
