@@ -131,18 +131,19 @@
                 <div id="payModalTotal" style="font-size: 36px; font-weight: 900; color: var(--accent);">₹0.00</div>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <label style="width: 80px; font-weight: bold;">Cash</label>
-                    <input type="number" id="payCash" class="filter-input" style="flex: 1; font-size: 18px; font-weight: bold; color: var(--success);" placeholder="0">
-                </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <label style="width: 80px; font-weight: bold;">UPI</label>
-                    <input type="number" id="payUPI" class="filter-input" style="flex: 1; font-size: 18px;" placeholder="0">
-                </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <label style="width: 80px; font-weight: bold;">Card</label>
-                    <input type="number" id="payCard" class="filter-input" style="flex: 1; font-size: 18px;" placeholder="0">
-                </div>
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <label style="width: 60px; font-weight: bold;">Cash</label>
+                        <!-- FIX: Removed min="0" so you can type negative refund payouts -->
+                        <input type="number" id="payCash" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px; color: var(--success);" step="0.01">
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <label style="width: 60px; font-weight: bold;">UPI</label>
+                        <input type="number" id="payUPI" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px;" step="0.01">
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                        <label style="width: 60px; font-weight: bold;">Card</label>
+                        <input type="number" id="payCard" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px;" step="0.01">
+                    </div>
                 <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
                     <label id="lblBalance" style="width: 80px; font-weight: bold; color: var(--danger);">Due</label>
                     <input type="text" id="payBalance" class="filter-input" style="flex: 1; font-size: 20px; font-weight: bold; background: #f9fafb;" disabled value="0.00">
