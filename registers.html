@@ -275,12 +275,43 @@
                 const v = this.allVouchers.find(x => x.id === id);
                 if(!v) return;
 
-                document.getElementById('prAddress').innerText = CONFIG.STORE_ADDRESS || 'A-12, Janta Store, Jaipur';
-                document.getElementById('prContact').innerText = `Ph: ${CONFIG.STORE_PHONE || '9829610570'}`;
-                document.getElementById('prTitle').innerText = v.type === 'Sale' ? 'TAX INVOICE' : 'PURCHASE VOUCHER';
+                // Load Settings from LocalStorage
+                let conf = {
+                    firmName: 'GLACIER ICE CREAM PARLOR', gstin: '', fssai: '', 
+                    address: 'Jaipur, Rajasthan', contact: '', gstType: 'Regular', footer: 'Thank You! Visit Again.'
+                };
+                const savedSettings = localStorage.getItem('glacier_settings');
+                if (savedSettings) conf = { ...conf, ...JSON.parse(savedSettings) };
+
+                document.getElementById('prFirmName').innerText = conf.firmName;
+                document.getElementById('prAddress').innerText = conf.address;
+                document.getElementById('prContact').innerText = conf.contact ? `Ph: ${conf.contact}` : '';
+                
+                if (conf.gstin) {
+                    document.getElementById('prGstin').innerText = conf.gstin;
+                    document.getElementById('prGstinBlock').style.display = 'block';
+                } else { document.getElementById('prGstinBlock').style.display = 'none'; }
+
+                if (conf.fssai) {
+                    document.getElementById('prFssai').innerText = conf.fssai;
+                    document.getElementById('prFssaiBlock').style.display = 'block';
+                } else { document.getElementById('prFssaiBlock').style.display = 'none'; }
+
+                // Tax Compliance Logic
+                if (conf.gstType === 'Composition') {
+                    document.getElementById('prTitle').innerText = v.type === 'Sale' ? 'BILL OF SUPPLY' : 'PURCHASE VOUCHER';
+                    document.getElementById('prCompositionMsg').style.display = v.type === 'Sale' ? 'block' : 'none';
+                } else {
+                    document.getElementById('prTitle').innerText = v.type === 'Sale' ? 'TAX INVOICE' : 'PURCHASE VOUCHER';
+                    document.getElementById('prCompositionMsg').style.display = 'none';
+                }
+
+                document.getElementById('prFooter').innerText = conf.footer;
                 document.getElementById('prCustomer').innerText = v.party;
+                document.getElementById('prCustMob').innerText = v.mobile || '-';
                 document.getElementById('prDate').innerText = v.date;
                 document.getElementById('prInv').innerText = v.id;
+                document.getElementById('prPayMode').innerText = v.mode || 'Cash';
                 
                 const tbody = document.getElementById('prItemsBody');
                 tbody.innerHTML = '';
@@ -288,9 +319,14 @@
                 let items = [];
                 try { items = typeof v.items === 'string' ? JSON.parse(v.items) : v.items; } catch(e) {}
                 
+                let totalSavings = 0;
+                
                 items.forEach(item => {
+                    const discountAmt = parseFloat(item.discount) || 0;
+                    totalSavings += discountAmt;
+
                     let itemNameHtml = `<b>${item.itemName}</b>`;
-                    if(item.discount > 0) itemNameHtml += `<br><span style="font-size: 0.85em; font-style: italic;">(Disc applied)</span>`;
+                    if (discountAmt > 0) itemNameHtml += `<br><span style="font-size: 0.85em; font-style: italic;">(Save: ₹${discountAmt.toFixed(2)})</span>`;
                     
                     tbody.innerHTML += `
                         <tr>
@@ -303,8 +339,17 @@
                 });
                 
                 document.getElementById('prTotal').innerText = parseFloat(v.total).toFixed(2);
-                document.getElementById('printWrapper').classList.add('active');
                 
+                // Show Savings if applicable
+                const savingsEl = document.getElementById('prSavings');
+                if (totalSavings > 0.5) {
+                    savingsEl.innerHTML = `★ YOU SAVED: ₹${Math.round(totalSavings).toFixed(2)} ★`;
+                    savingsEl.style.display = 'block';
+                } else {
+                    savingsEl.style.display = 'none';
+                }
+                
+                document.getElementById('printWrapper').classList.add('active');
                 setTimeout(() => window.print(), 300);
             },
 
