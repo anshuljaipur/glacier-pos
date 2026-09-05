@@ -815,9 +815,16 @@ const CalculatorApp = {
         const display = document.getElementById('calc-display');
         try {
             if (!display.value || display.value === '0') return;
-            let result = new Function('return ' + display.value.replace(/[^0-9+\-*/.%()]/g, ''))();
-            if (result !== undefined) {
-                // Ensure result doesn't break the 16 digit limit
+            
+            // Clean the input to prevent malicious code
+            let mathExpression = display.value.replace(/[^0-9+\-*/.%()]/g, '');
+            
+            // Convert the % symbol into standard math (divide by 100)
+            mathExpression = mathExpression.replace(/%/g, '/100');
+            
+            let result = new Function('return ' + mathExpression)();
+            
+            if (result !== undefined && !isNaN(result)) {
                 let resStr = String(result);
                 display.value = resStr.length > 16 ? resStr.substring(0, 16) : resStr;
             } else {
