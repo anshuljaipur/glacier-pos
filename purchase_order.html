@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order - GLACIER ERP</title>
+    <link rel="stylesheet" href="css/pos.css">
+    
+    <style>
+        .po-container { padding: 20px; background: white; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); width: 100%; box-sizing: border-box; }
+        .filter-row { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .po-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+        .po-table th { padding: 12px; background: #1f2937; color: white; position: sticky; top: 0; }
+        .po-table td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
+        .po-table tr:hover { background: #f9fafb; }
+        .stock-low { color: #ef4444; font-weight: bold; }
+        .stock-ok { color: #10b981; font-weight: bold; }
+        .qty-input { width: 70px; padding: 6px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; }
+        
+        /* Floating Bottom Bar for WhatsApp Action */
+        .po-action-bar { position: sticky; bottom: 0; background: white; padding: 15px 20px; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); z-index: 100; }
+    </style>
+</head>
+<body>
+    <div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh; width: 100%;">
+        <!-- TOP NAVIGATION -->
+        <header class="topbar no-print">
+            <div class="topbar-brand">GLACIER ERP</div>
+            <div class="topbar-actions" style="display: flex; gap: 10px;">
+                <button onclick="window.location.href='index.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">🛒 POS</button>
+                <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
+                <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
+                <button onclick="window.location.href='purchase_order.html'" class="btn btn-primary" style="background: #2563eb; color: white;">📝 Order (PO)</button>
+                <button onclick="POApp.loadData()" class="btn btn-warning" id="network-status" style="background: #f59e0b; color: white;">↻ Sync Data</button>
+            </div>
+        </header>
+
+        <main style="flex: 1; padding: 20px; background: #f3f4f6; overflow-y: auto;">
+            <div class="po-container">
+                <!-- FILTERS -->
+                <div class="filter-row">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 5px; display: block;">SEARCH ITEM</label>
+                        <input type="text" id="poSearch" class="cart-input" placeholder="Search by Name or Barcode..." oninput="POApp.filterAndSort()" style="width: 100%; padding: 8px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 5px; display: block;">CATEGORY</label>
+                        <select id="poCategory" class="cart-input" onchange="POApp.filterAndSort()" style="padding: 8px; min-width: 150px;"></select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 5px; display: block;">BRAND</label>
+                        <select id="poBrand" class="cart-input" onchange="POApp.filterAndSort()" style="padding: 8px; min-width: 150px;"></select>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 5px; display: block;">SORT BY</label>
+                        <select id="poSort" class="cart-input" onchange="POApp.filterAndSort()" style="padding: 8px; min-width: 160px; background: #eff6ff; border-color: #bfdbfe;">
+                            <option value="fast_move">Fast Moveable (Low Stock vs MOQ)</option>
+                            <option value="stock_asc">Current Stock (Low to High)</option>
+                            <option value="stock_desc">Current Stock (High to Low)</option>
+                            <option value="cat_asc">Category (A-Z)</option>
+                            <option value="brand_asc">Brand Name (A-Z)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button class="btn" style="background: #ef4444; color: white; padding: 8px 15px; height: 35px;" onclick="POApp.clearFilters()">✖ Clear</button>
+                    </div>
+                </div>
+
+                <!-- TABLE -->
+                <div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; max-height: 60vh; overflow-y: auto;">
+                    <table class="po-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Item Name</th>
+                                <th>Category</th>
+                                <th>Brand</th>
+                                <th style="text-align: center;">Current Stock</th>
+                                <th style="text-align: center;">Order Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poBody">
+                            <tr><td colspan="5" style="text-align:center; padding: 30px;">Loading Inventory...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- WHATSAPP SUMMARY BAR -->
+        <div class="po-action-bar">
+            <div>
+                <span style="font-size: 16px; font-weight: bold; color: #1e293b;">Items Selected: <span id="lblSelectedCount" style="color: #2563eb;">0</span></span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" style="background: #64748b; color: white; padding: 10px 20px; font-weight: bold;" onclick="POApp.clearCart()">Reset Order</button>
+                <button class="btn" style="background: #22c55e; color: white; padding: 10px 20px; font-weight: bold; display: flex; align-items: center; gap: 8px;" onclick="POApp.shareWhatsApp()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a5.8 5.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                    </svg>
+                    Share on WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CORE SCRIPTS -->
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    
+    <script>
+        const POApp = {
+            inventory: [],
+            orderCart: {}, // Stores barcode -> qty
+            
+            async loadData() {
+                const btn = document.getElementById('network-status');
+                if (btn) btn.textContent = "↻ Syncing...";
+                
+                try {
+                    this.inventory = await API.getInventory();
+                    this.populateFilters();
+                    this.filterAndSort();
+                } catch (error) {
+                    document.getElementById('poBody').innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Failed to fetch inventory. Check network.</td></tr>';
+                } finally {
+                    if (btn) btn.textContent = "↻ Sync Data";
+                }
+            },
+            
+            populateFilters() {
+                const categories = [...new Set(this.inventory.map(p => p.category).filter(Boolean))].sort();
+                const brands = [...new Set(this.inventory.map(p => p.brandname).filter(Boolean))].sort();
+                
+                const catSelect = document.getElementById('poCategory');
+                const brandSelect = document.getElementById('poBrand');
+                
+                catSelect.innerHTML = '<option value="">All Categories</option>' + categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                brandSelect.innerHTML = '<option value="">All Brands</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+            },
+
+            clearFilters() {
+                document.getElementById('poSearch').value = '';
+                document.getElementById('poCategory').value = '';
+                document.getElementById('poBrand').value = '';
+                document.getElementById('poSort').value = 'fast_move';
+                this.filterAndSort();
+            },
+            
+            filterAndSort() {
+                const search = document.getElementById('poSearch').value.toLowerCase().trim();
+                const cat = document.getElementById('poCategory').value;
+                const brand = document.getElementById('poBrand').value;
+                const sortMethod = document.getElementById('poSort').value;
+                
+                let filtered = this.inventory.filter(p => {
+                    const matchSearch = !search || p.itemname.toLowerCase().includes(search) || (p.barcode && p.barcode.toString().includes(search));
+                    const matchCat = !cat || p.category === cat;
+                    const matchBrand = !brand || p.brandname === brand;
+                    return matchSearch && matchCat && matchBrand;
+                });
+
+                // SORTING LOGIC
+                filtered.sort((a, b) => {
+                    const qtyA = parseFloat(a.quantity) || 0;
+                    const qtyB = parseFloat(b.quantity) || 0;
+                    const nameA = (a.itemname || '').toLowerCase();
+                    const nameB = (b.itemname || '').toLowerCase();
+                    const catA = (a.category || '').toLowerCase();
+                    const catB = (b.category || '').toLowerCase();
+                    const brandA = (a.brandname || '').toLowerCase();
+                    const brandB = (b.brandname || '').toLowerCase();
+
+                    if (sortMethod === 'fast_move') {
+                        // "Fast Moveable": Prioritize items where Stock is less than or equal to MOQ (needs restock)
+                        const moqA = parseFloat(a.moq) || 1;
+                        const moqB = parseFloat(b.moq) || 1;
+                        const ratioA = qtyA / moqA;
+                        const ratioB = qtyB / moqB;
+                        if (ratioA !== ratioB) return ratioA - ratioB; // Lowest ratio (lowest stock relative to minimum) floats to top
+                        return nameA.localeCompare(nameB);
+                    } 
+                    else if (sortMethod === 'stock_asc') {
+                        if (qtyA !== qtyB) return qtyA - qtyB;
+                        return nameA.localeCompare(nameB);
+                    } 
+                    else if (sortMethod === 'stock_desc') {
+                        if (qtyA !== qtyB) return qtyB - qtyA;
+                        return nameA.localeCompare(nameB);
+                    }
+                    else if (sortMethod === 'cat_asc') {
+                        if (catA !== catB) return catA.localeCompare(catB);
+                        return nameA.localeCompare(nameB);
+                    }
+                    else if (sortMethod === 'brand_asc') {
+                        if (brandA !== brandB) return brandA.localeCompare(brandB);
+                        return nameA.localeCompare(nameB);
+                    }
+                    return 0;
+                });
+
+                this.renderTable(filtered);
+            },
+            
+            updateCart(barcode, name, inputEl) {
+                const qty = parseFloat(inputEl.value);
+                const uniqueKey = barcode || name; // Fallback to name if barcode missing
+                
+                if (qty > 0) {
+                    this.orderCart[uniqueKey] = { name: name, qty: qty };
+                } else {
+                    delete this.orderCart[uniqueKey];
+                }
+                
+                // Update selected items badge
+                const count = Object.keys(this.orderCart).length;
+                document.getElementById('lblSelectedCount').innerText = count;
+            },
+
+            clearCart() {
+                if(!confirm("Clear all selected quantities?")) return;
+                this.orderCart = {};
+                document.getElementById('lblSelectedCount').innerText = "0";
+                this.filterAndSort(); // Re-renders to clear inputs
+            },
+            
+            renderTable(data) {
+                const tbody = document.getElementById('poBody');
+                tbody.innerHTML = '';
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No items match your filters.</td></tr>';
+                    return;
+                }
+
+                data.forEach(p => {
+                    const stock = parseFloat(p.quantity) || 0;
+                    const stockClass = stock <= (parseFloat(p.moq) || 0) ? 'stock-low' : 'stock-ok';
+                    
+                    const uniqueKey = p.barcode || p.itemname;
+                    const cartQty = this.orderCart[uniqueKey] ? this.orderCart[uniqueKey].qty : '';
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 500;">${p.itemname}</td>
+                        <td>${p.category || '-'}</td>
+                        <td>${p.brandname || '-'}</td>
+                        <td style="text-align: center;" class="${stockClass}">${stock}</td>
+                        <td style="text-align: center;">
+                            <input type="number" min="0" class="qty-input" placeholder="0" value="${cartQty}" 
+                                oninput="POApp.updateCart('${p.barcode || ''}', '${p.itemname.replace(/'/g, "\\'")}', this)">
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            shareWhatsApp() {
+                const keys = Object.keys(this.orderCart);
+                if (keys.length === 0) {
+                    alert("Please enter a quantity for at least one item to generate a Purchase Order.");
+                    return;
+                }
+                
+                let text = `*PURCHASE ORDER*\nDate: ${new Date().toLocaleDateString('en-GB')}\nFirm: GLACIER ICE CREAM PARLOR\n\n`;
+                text += `*Items Required:*\n`;
+                
+                let count = 1;
+                for (let key in this.orderCart) {
+                    let item = this.orderCart[key];
+                    text += `${count}. ${item.name} - *${item.qty}*\n`;
+                    count++;
+                }
+                
+                const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
+            }
+        };
+
+        window.onload = () => POApp.loadData();
+    </script>
+</body>
+</html>
