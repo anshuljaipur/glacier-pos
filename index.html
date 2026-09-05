@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLACIER ERP - Retail POS 04092026 23:05</title>
+    <title>GLACIER ERP - Retail POS 05092026 17:40</title>
     <link rel="stylesheet" href="css/pos.css">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
@@ -15,6 +15,7 @@
         <header class="topbar no-print">
             <div class="topbar-brand">GLACIER ERP</div>
             <div class="topbar-actions" style="display: flex; gap: 10px;">
+                <button class="btn" style="background: #4b5563; color: white; margin-left: 5px;" onclick="CalculatorApp.toggle()">🖩 Calc</button>
                 <button onclick="window.location.href='index.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">🛒 POS</button>
                 <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
                 <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
@@ -326,5 +327,45 @@
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
+
+    <!-- Floating Calculator Widget -->
+<div id="floating-calculator" style="display: none; position: fixed; top: 80px; right: 20px; width: 240px; background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; border: 1px solid #cbd5e1; user-select: none;">
+    <!-- Draggable Header -->
+    <div id="calc-header" style="background: #1f2937; color: white; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: move; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: bold; font-size: 13px;">🖩 Calculator</span>
+        <span style="cursor: pointer; font-size: 18px; line-height: 1;" onclick="CalculatorApp.close()">×</span>
+    </div>
+    <!-- Display & Buttons -->
+    <div style="padding: 15px; background: #f8fafc; border-radius: 0 0 8px 8px;">
+        <input type="text" id="calc-display" readonly style="width: 100%; padding: 10px; font-size: 20px; text-align: right; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; background: white; color: black; font-family: monospace;">
+        
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+            <button class="btn" style="background:#ef4444; color:white; padding:10px;" onclick="CalculatorApp.clear()">C</button>
+            <button class="btn" style="background:#e2e8f0; color:black; padding:10px;" onclick="CalculatorApp.backspace()">⌫</button>
+            <button class="btn" style="background:#e2e8f0; color:black; padding:10px;" onclick="CalculatorApp.append('%')">%</button>
+            <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('/')">÷</button>
+            
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('7')">7</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('8')">8</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('9')">9</button>
+            <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('*')">×</button>
+            
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('4')">4</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('5')">5</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('6')">6</button>
+            <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('-')">-</button>
+            
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('1')">1</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('2')">2</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('3')">3</button>
+            <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('+')">+</button>
+            
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1; grid-column: span 2;" onclick="CalculatorApp.append('0')">0</button>
+            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('.')">.</button>
+            <button class="btn" style="background:#10b981; color:white; padding:10px;" onclick="CalculatorApp.calculate()">=</button>
+        </div>
+    </div>
+</div>
+    
 </body>
 </html>
