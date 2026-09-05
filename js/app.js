@@ -709,6 +709,19 @@ function openQuickAdd() {
     setTimeout(() => document.getElementById('qBarcode').focus(), 50);
 }
 
+function generateSystemBarcode() {
+    const barcodeInput = document.getElementById('qBarcode');
+    if (barcodeInput) {
+        // Generates a unique 13-digit number (e.g., 1693512345678)
+        barcodeInput.value = Date.now().toString();
+        
+        // Brief visual flash to confirm generation
+        barcodeInput.style.backgroundColor = '#dcfce7';
+        barcodeInput.style.transition = 'background-color 0.3s';
+        setTimeout(() => barcodeInput.style.backgroundColor = '', 300);
+    }
+}
+
 function toggleItemFields() {
     const target = document.getElementById('qTarget').value;
     if(target === 'icecream') {
@@ -741,6 +754,8 @@ async function saveNewItem() {
     const netStatus = document.getElementById('network-status');
     if(netStatus) netStatus.textContent = "↻ Syncing New Item...";
 
+    // Auto-generate if left completely blank
+    if (!document.getElementById('qBarcode').value.trim()) generateSystemBarcode();
     const payload = {
         target: target,
         barcode: document.getElementById('qBarcode').value.trim(),
