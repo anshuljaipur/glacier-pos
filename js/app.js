@@ -8,20 +8,49 @@ const toTitleCase = (str) => {
 };
 
 document.addEventListener('keydown', (e) => {
+    // --- NEW: Route Math Keys to Calculator if open ---
+    if (CalculatorApp.isOpen) {
+        const validKeys = '0123456789+-*/.%';
+        if (validKeys.includes(e.key)) {
+            e.preventDefault();
+            CalculatorApp.append(e.key);
+            return;
+        }
+        if (e.key === 'Enter' || e.key === '=') {
+            e.preventDefault();
+            CalculatorApp.calculate();
+            return;
+        }
+        if (e.key === 'Backspace') {
+            e.preventDefault();
+            CalculatorApp.backspace();
+            return;
+        }
+    }
+
     if(e.key === 'F4') { e.preventDefault(); CartApp.openPaymentPopup(); return; }
     if (e.altKey && e.code === 'KeyC') { e.preventDefault(); openQuickAdd(); return; }
-    
     if (e.altKey && e.code === 'KeyS') { 
         e.preventDefault(); 
         const searchBox = document.getElementById('posSearch');
-        if(searchBox) { 
-            searchBox.focus(); 
-            searchBox.select(); 
-        }
+        if(searchBox) { searchBox.focus(); searchBox.select(); }
         return; 
     }
     
     if(e.key === 'Escape') { 
+        // --- NEW: Double Esc Logic for Calculator ---
+        if (CalculatorApp.isOpen) {
+            e.preventDefault();
+            const display = document.getElementById('calc-display');
+            if (display.value !== '' && display.value !== 'Error') {
+                CalculatorApp.clear(); // Press 1: Clear
+            } else {
+                CalculatorApp.close(); // Press 2: Close
+            }
+            return; 
+        }
+
+        // Standard Esc behavior
         document.getElementById('paymentModal')?.classList.remove('active');
         document.getElementById('quickAddModal')?.classList.remove('active');
         if(document.getElementById('printWrapper')?.classList.contains('active')) {
@@ -29,6 +58,8 @@ document.addEventListener('keydown', (e) => {
         }
         return; 
     }
+    
+    // ... [keep your existing barcode scanner logic below]
     
     if(e.target.tagName === 'INPUT' && e.target.id !== 'posSearch') return;
     if(e.key.length === 1) {
@@ -703,6 +734,66 @@ function stopMobileScanner() {
         html5QrcodeScanner = null;
     }
 }
+
+// --- CALCULATOR WIDGET LOGIC ---
+const CalculatorApp = {
+    isOpen: false,
+    init() {
+        const el = document.getElementById('floating-calculator');
+        const header = document.getElementById('calc-header');
+        if (!el || !header) return;
+
+        // Make draggable
+        let isDragging = false, startX, startY, initialX, initialY;
+        header.onmousedown = (e) => {
+            isDragging = true;
+            startX = e.clientX; startY = e.clientY;
+            initialX = el.offsetLeft; initialY = el.offsetTop;
+            document.onmousemove = (e) => {
+                if (!isDragging) return;
+                el.style.left = (initialX + e.clientX - startX) + 'px';
+                el.style.top = (initialY + e.clientY - startY) + 'px';
+                el.style.right = 'auto'; // Remove right anchor after drag
+            };
+            document.onmouseup = () => {
+                isDragging = false;
+                document.onmousemove = null; document.onmouseup = null;
+            };
+        };
+    },
+    toggle() { this.isOpen ? this.close() : this.open(); },
+    open() { 
+        document.getElementById('floating-calculator').style.display = 'block'; 
+        this.isOpen = true; 
+    },
+    close() { 
+        document.getElementById('floating-calculator').style.display = 'none'; 
+        this.isOpen = false; 
+    },
+    append(val) {
+        const display = document.getElementById('calc-display');
+        if (display.value === 'Error') display.value = '';
+        display.value += val;
+    },
+    clear() { document.getElementById('calc-display').value = ''; },
+    backspace() {
+        const display = document.getElementById('calc-display');
+        if (display.value !== 'Error') display.value = display.value.slice(0, -1);
+    },
+    calculate() {
+        const display = document.getElementById('calc-display');
+        try {
+            if (!display.value) return;
+            // Evaluates math safely
+            display.value = new Function('return ' + display.value.replace(/[^0-9+\-*/.%()]/g, ''))();
+        } catch (e) {
+            display.value = 'Error';
+        }
+    }
+};
+
+// Initialize drag functionality on load
+window.addEventListener('DOMContentLoaded', () => CalculatorApp.init());
 
 // --- INITIALIZATION ---
 window.onload = () => {
