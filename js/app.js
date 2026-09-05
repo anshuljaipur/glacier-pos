@@ -8,7 +8,9 @@ const toTitleCase = (str) => {
 };
 
 document.addEventListener('keydown', (e) => {
-    // --- NEW: Route Math Keys to Calculator if open ---
+    // NEW: F9 toggles the calculator globally
+    if (e.key === 'F9') { e.preventDefault(); CalculatorApp.toggle(); return; }
+
     if (CalculatorApp.isOpen) {
         const validKeys = '0123456789+-*/.%';
         if (validKeys.includes(e.key)) {
@@ -38,19 +40,18 @@ document.addEventListener('keydown', (e) => {
     }
     
     if(e.key === 'Escape') { 
-        // --- NEW: Double Esc Logic for Calculator ---
+        // NEW: Double-Esc Calculator Logic
         if (CalculatorApp.isOpen) {
             e.preventDefault();
             const display = document.getElementById('calc-display');
-            if (display.value !== '' && display.value !== 'Error') {
-                CalculatorApp.clear(); // Press 1: Clear
+            if (display.value !== '0' && display.value !== 'Error') {
+                CalculatorApp.clear(); // First Esc: Clears to 0
             } else {
-                CalculatorApp.close(); // Press 2: Close
+                CalculatorApp.close(); // Second Esc: Closes widget
             }
             return; 
         }
 
-        // Standard Esc behavior
         document.getElementById('paymentModal')?.classList.remove('active');
         document.getElementById('quickAddModal')?.classList.remove('active');
         if(document.getElementById('printWrapper')?.classList.contains('active')) {
@@ -58,8 +59,6 @@ document.addEventListener('keydown', (e) => {
         }
         return; 
     }
-    
-    // ... [keep your existing barcode scanner logic below]
     
     if(e.target.tagName === 'INPUT' && e.target.id !== 'posSearch') return;
     if(e.key.length === 1) {
@@ -743,7 +742,6 @@ const CalculatorApp = {
         const header = document.getElementById('calc-header');
         if (!el || !header) return;
 
-        // Make draggable
         let isDragging = false, startX, startY, initialX, initialY;
         header.onmousedown = (e) => {
             isDragging = true;
@@ -753,7 +751,7 @@ const CalculatorApp = {
                 if (!isDragging) return;
                 el.style.left = (initialX + e.clientX - startX) + 'px';
                 el.style.top = (initialY + e.clientY - startY) + 'px';
-                el.style.right = 'auto'; // Remove right anchor after drag
+                el.style.right = 'auto'; 
             };
             document.onmouseup = () => {
                 isDragging = false;
@@ -772,27 +770,63 @@ const CalculatorApp = {
     },
     append(val) {
         const display = document.getElementById('calc-display');
-        if (display.value === 'Error') display.value = '';
+        let current = display.value;
+        if (current === 'Error') current = '0';
+        if (current.length >= 16) return; // 16 digit limit
+
+        // Prevent multiple dots in a single number
+        if (val === '.') {
+            const parts = current.split(/[+\-*/%]/);
+            if (parts[parts.length - 1].includes('.')) return;
+        }
+
+        // Prevent back-to-back operators (replaces the old one)
+        const operators = '+-*/%';
+        if (operators.includes(val) && operators.includes(current.slice(-1))) {
+            display.value = current.slice(0, -1) + val;
+            return;
+        }
+
+        // Override '0' when typing a new number
+        if (current === '0') {
+            if (/[0-9]/.test(val)) {
+                display.value = val;
+                return;
+            } else if (val === '.') {
+                display.value = '0.';
+                return;
+            }
+        }
+
         display.value += val;
     },
-    clear() { document.getElementById('calc-display').value = ''; },
+    clear() { document.getElementById('calc-display').value = '0'; },
     backspace() {
         const display = document.getElementById('calc-display');
-        if (display.value !== 'Error') display.value = display.value.slice(0, -1);
+        if (display.value === 'Error' || display.value.length <= 1) {
+            display.value = '0';
+        } else {
+            display.value = display.value.slice(0, -1);
+        }
     },
     calculate() {
         const display = document.getElementById('calc-display');
         try {
-            if (!display.value) return;
-            // Evaluates math safely
-            display.value = new Function('return ' + display.value.replace(/[^0-9+\-*/.%()]/g, ''))();
+            if (!display.value || display.value === '0') return;
+            let result = new Function('return ' + display.value.replace(/[^0-9+\-*/.%()]/g, ''))();
+            if (result !== undefined) {
+                // Ensure result doesn't break the 16 digit limit
+                let resStr = String(result);
+                display.value = resStr.length > 16 ? resStr.substring(0, 16) : resStr;
+            } else {
+                display.value = '0';
+            }
         } catch (e) {
             display.value = 'Error';
         }
     }
 };
 
-// Initialize drag functionality on load
 window.addEventListener('DOMContentLoaded', () => CalculatorApp.init());
 
 // --- INITIALIZATION ---
