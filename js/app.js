@@ -380,7 +380,34 @@ const CartApp = {
     },
     
     addItem(product) {
-        // NEW: Check if return mode is active to default to negative quantity
+        // NEW: 30-Day Expiry Warning Logic
+        if (product.expiry) {
+            const expDate = new Date(product.expiry);
+            if (!isNaN(expDate.getTime())) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Reset time to midnight for accurate day counts
+                
+                const expMidnight = new Date(expDate);
+                expMidnight.setHours(0, 0, 0, 0);
+                
+                const diffTime = expMidnight - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays <= 30) {
+                    let msg = diffDays < 0 
+                        ? `🚨 WARNING: "${product.itemname}" EXPIRED ${Math.abs(diffDays)} days ago!\n\nDo you still want to add it to the cart?`
+                        : `⚠️ WARNING: "${product.itemname}" will expire in ${diffDays} days (on ${expDate.toLocaleDateString('en-GB')}).\n\nDo you want to continue?`;
+                    
+                    // If user clicks "Cancel", stop adding the item
+                    if (!confirm(msg)) {
+                        const searchBox = document.getElementById('posSearch');
+                        if (searchBox) searchBox.value = '';
+                        return; 
+                    }
+                }
+            }
+        }
+
         const isReturn = document.getElementById('chkReturnMode')?.checked;
         const qtyToAdd = isReturn ? -1 : 1;
 
@@ -391,7 +418,7 @@ const CartApp = {
             this.items.push({
                 barcode: product.barcode,
                 itemName: product.itemname,
-                qty: qtyToAdd, // Applies -1 or 1
+                qty: qtyToAdd, 
                 rate: parseFloat(product.sellingrate),
                 discountPerc: 0
             });
@@ -399,7 +426,10 @@ const CartApp = {
         this.render();
         
         const searchBox = document.getElementById('posSearch');
-        if (searchBox) searchBox.focus();
+        if (searchBox) {
+            searchBox.value = '';
+            searchBox.focus();
+        }
     },
 
     updateField(index, field, val) {
