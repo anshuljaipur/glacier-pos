@@ -575,21 +575,61 @@ this.items.forEach((c, index) => {
     },
     triggerPrint(payload) {
         document.getElementById('paymentModal').classList.remove('active');
-        document.getElementById('prAddress').innerText = CONFIG.STORE_ADDRESS;
-        document.getElementById('prContact').innerText = `Ph: ${CONFIG.STORE_PHONE}`;
+        
+        const conf = SettingsApp.config;
+        
+        document.getElementById('prFirmName').innerText = conf.firmName;
+        document.getElementById('prAddress').innerText = conf.address;
+        document.getElementById('prContact').innerText = conf.contact ? `Ph: ${conf.contact}` : '';
+        
+        if (conf.gstin) {
+            document.getElementById('prGstin').innerText = conf.gstin;
+            document.getElementById('prGstinBlock').style.display = 'block';
+        } else {
+            document.getElementById('prGstinBlock').style.display = 'none';
+        }
+
+        if (conf.fssai) {
+            document.getElementById('prFssai').innerText = conf.fssai;
+            document.getElementById('prFssaiBlock').style.display = 'block';
+        } else {
+            document.getElementById('prFssaiBlock').style.display = 'none';
+        }
+
+        // TAX LAW COMPLIANCE
+        if (conf.gstType === 'Composition') {
+            document.getElementById('prTitle').innerText = 'BILL OF SUPPLY';
+            document.getElementById('prCompositionMsg').style.display = 'block';
+        } else {
+            document.getElementById('prTitle').innerText = 'TAX INVOICE';
+            document.getElementById('prCompositionMsg').style.display = 'none';
+        }
+
+        document.getElementById('prFooter').innerText = conf.footer;
         document.getElementById('prCustomer').innerText = payload.customer;
-        document.getElementById('prCustMob').innerText = document.getElementById('posMobile').value || '-';
+        document.getElementById('prCustMob').innerText = document.getElementById('posMobile')?.value || '-';
         document.getElementById('prDate').innerText = new Date().toLocaleString();
         document.getElementById('prInv').innerText = payload.invoiceNo;
+        document.getElementById('prPayMode').innerText = payload.paymentMode || 'Cash';
         
         const tbody = document.getElementById('prItemsBody');
         tbody.innerHTML = '';
         
         let totalAmt = 0;
+        let totalSavings = 0;
+        
         payload.items.forEach(item => {
             totalAmt += item.amount;
+            
+            // Calculate Savings: (MRP vs Final Billed Amount)
+            const invItem = InventoryApp.products.find(p => p.itemname === item.itemName);
+            const mrp = invItem && parseFloat(invItem.mrp) > parseFloat(item.rate) ? parseFloat(invItem.mrp) : parseFloat(item.rate);
+            
+            const itemSavings = (mrp * item.quantity) - item.amount;
+            if (itemSavings > 0) totalSavings += itemSavings;
+            
             let itemNameHtml = `<b>${item.itemName}</b>`;
-            if(item.discount > 0) itemNameHtml += `<br><span style="font-size: 0.85em; font-style: italic;">(Disc applied)</span>`;
+            if (item.discount > 0) itemNameHtml += `<br><span style="font-size: 0.85em; font-style: italic;">(Save: ₹${item.discount.toFixed(2)})</span>`;
             
             tbody.innerHTML += `
                 <tr>
@@ -601,9 +641,24 @@ this.items.forEach((c, index) => {
             `;
         });
         
-        document.getElementById('prTotal').innerText = totalAmt.toFixed(2);
-        document.getElementById('printWrapper').classList.add('active');
+        const finalPayableText = document.getElementById('cartGrandTotal') ? document.getElementById('cartGrandTotal').innerText.replace('₹', '') : totalAmt.toFixed(2);
+        document.getElementById('prTotal').innerText = finalPayableText;
         
+        const bType = document.getElementById('billDiscountType') ? document.getElementById('billDiscountType').value : 'Amt';
+        const bVal = document.getElementById('billDiscountValue') ? parseFloat(document.getElementById('billDiscountValue').value) || 0 : 0;
+        let subtotal = payload.items.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+        let billDisAmt = bType === 'Amt' ? bVal : subtotal * (bVal / 100);
+        totalSavings += billDisAmt;
+        
+        const savingsEl = document.getElementById('prSavings');
+        if (totalSavings > 0.5) {
+            savingsEl.innerHTML = `★ YOU SAVED: ₹${Math.round(totalSavings).toFixed(2)} ★`;
+            savingsEl.style.display = 'block';
+        } else {
+            savingsEl.style.display = 'none';
+        }
+        
+        document.getElementById('printWrapper').classList.add('active');
         setTimeout(() => window.print(), 300);
     },
     closePrintAndReset() {
@@ -879,7 +934,10 @@ const SettingsApp = {
     }
 };
 
-window.addEventListener('DOMContentLoaded', () => CalculatorApp.init());
+window.addEventListener('DOMContentLoaded', () => {
+    CalculatorApp.init();
+    SettingsApp.init();
+});
 
 // --- INITIALIZATION ---
 window.onload = () => {
