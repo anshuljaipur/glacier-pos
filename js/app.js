@@ -31,7 +31,6 @@ if(e.key === 'Escape') {
         }
         return; 
     }
-    }
 
     if(e.key === 'F4') { e.preventDefault(); CartApp.openPaymentPopup(); return; }
     if (e.altKey && e.code === 'KeyC') { e.preventDefault(); openQuickAdd(); return; }
