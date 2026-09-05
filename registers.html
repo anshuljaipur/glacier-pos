@@ -6,7 +6,7 @@
     <title>GLACIER ERP - Invoice Register</title>
     <link rel="stylesheet" href="css/pos.css">
     <style>
-        .register-container { padding: 20px; background: white; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        .register-container { padding: 20px; background: white; border-radius: 8px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); height: 100%; display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 100%; }
         .filter-row { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; }
         .form-group { display: flex; flex-direction: column; gap: 5px; }
         .form-group label { font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; }
@@ -23,12 +23,14 @@
         .btn-print:hover { background: #2563eb; color: white; }
         .btn-del-reg { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
         .btn-del-reg:hover { background: #dc2626; color: white; }
+        
+        /* Force main content to expand fully */
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; width: 100%; max-width: 100%; box-sizing: border-box; }
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container" style="display: flex; flex-direction: column; min-height: 100vh; width: 100%;">
         <!-- Top Navigation -->
-        <!-- Unified Navigation Bar -->
         <header class="topbar no-print">
             <div class="topbar-brand">GLACIER ERP</div>
             <div class="topbar-actions" style="display: flex; gap: 10px;">
@@ -61,10 +63,14 @@
                     </div>
                     <div class="form-group" style="flex: 1;">
                         <label>Search Invoice / Party</label>
-                        <input type="text" id="regSearch" class="filter-input" placeholder="Search...">
+                        <input type="text" id="regSearch" class="filter-input" placeholder="Search..." autocomplete="off">
                     </div>
                     <div class="form-group">
                         <button class="btn btn-primary" style="height: 34px; padding: 0 20px; font-weight: bold;" onclick="RegisterApp.filterData()">🔍 Filter</button>
+                    </div>
+                    <!-- NEW: Clear Filters Button -->
+                    <div class="form-group">
+                        <button class="btn" style="height: 34px; padding: 0 20px; font-weight: bold; background: #ef4444; color: white;" onclick="RegisterApp.clearFilters()">✖ Clear</button>
                     </div>
                     <div class="form-group">
                         <button class="btn btn-warning" id="btn-refresh" style="height: 34px; padding: 0 20px; font-weight: bold; background: #f59e0b; color: white;" onclick="RegisterApp.loadData()">↻ Refresh</button>
@@ -137,11 +143,7 @@
             
             init() {
                 // Set default dates (1st of month to today)
-                const today = new Date();
-                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                
-                document.getElementById('dateTo').value = today.toISOString().split('T')[0];
-                document.getElementById('dateFrom').value = firstDay.toISOString().split('T')[0];
+                this.setInitialDates();
                 
                 this.loadData();
                 
@@ -157,17 +159,44 @@
                 });
             },
 
+            setInitialDates() {
+                const today = new Date();
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                
+                // Adjust for local timezone offsets to ensure correct YYYY-MM-DD
+                const toIsoLocal = (date) => new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                
+                document.getElementById('dateTo').value = toIsoLocal(today);
+                document.getElementById('dateFrom').value = toIsoLocal(firstDay);
+            },
+
             async loadData() {
                 const btn = document.getElementById('btn-refresh');
                 btn.textContent = "⏳...";
                 try {
                     this.allVouchers = await API.getRegisters();
+                    
+                    // NEW: Ensure recent transactions show on top by sorting timestamps/dates descending
+                    this.allVouchers.sort((a, b) => {
+                        const timeA = a.timestamp ? (a.timestamp.seconds || a.timestamp) : new Date(a.date).getTime();
+                        const timeB = b.timestamp ? (b.timestamp.seconds || b.timestamp) : new Date(b.date).getTime();
+                        return timeB - timeA;
+                    });
+                    
                     this.filterData();
                 } catch (e) {
                     document.getElementById('regBody').innerHTML = `<tr><td colspan="7" style="text-align: center; color: red;">Failed to load data. Ensure Code.gs is updated.</td></tr>`;
                 } finally {
                     btn.textContent = "↻ Refresh";
                 }
+            },
+
+            // NEW: Clear Filters Logic
+            clearFilters() {
+                this.setInitialDates();
+                document.getElementById('vType').value = 'All';
+                document.getElementById('regSearch').value = '';
+                this.filterData();
             },
 
             filterData() {
@@ -209,8 +238,8 @@
                     return;
                 }
 
-                // Sort descending (newest first)
-                data.reverse().forEach(v => {
+                // Sorting is now handled in loadData(), so we loop normally
+                data.forEach(v => {
                     const badgeClass = v.type === 'Sale' ? 'badge-sale' : 'badge-purchase';
                     const amount = parseFloat(v.total) || 0;
                     
