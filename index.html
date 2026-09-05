@@ -253,17 +253,15 @@
         </div>
     </div>
     
-    <!-- Quick Add Modal (FIXED) -->
+    <!-- Quick Add Modal (Synced to Google Sheets Columns) -->
     <div id="quickAddModal" class="modal-overlay" style="align-items: center; justify-content: center;">
-        <div style="background: white; width: 500px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+        <div style="background: white; width: 550px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
             
-            <!-- Modal Header -->
             <div style="padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="margin: 0; color: #1d4ed8; font-size: 16px;">⊞ Add Master Item</h3>
                 <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="document.getElementById('quickAddModal').classList.remove('active')">×</button>
             </div>
             
-            <!-- Scrollable Form Area -->
             <div style="padding: 20px; overflow-y: auto;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                     
@@ -275,6 +273,7 @@
                         </select>
                     </div>
 
+                    <!-- COMMON FIELDS -->
                     <div style="grid-column: span 2;">
                         <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Barcode</label>
                         <div style="display: flex; gap: 5px;">
@@ -294,30 +293,23 @@
                     </div>
 
                     <div>
-                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Selling Rate (₹) *</label>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Selling Rate / Price (₹) *</label>
                         <input type="number" id="qPrice" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" step="0.01">
                     </div>
                     
                     <div>
-                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Opening Stock Qty</label>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Current Stock / Quantity</label>
                         <input type="number" id="qQty" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" value="0">
-                    </div>
-
-                    <div>
-                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">MOQ (Low Stock Alert)</label>
-                        <input type="number" id="qMoq" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" value="1">
                     </div>
 
                     <div>
                         <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Category</label>
                         <input type="text" id="qCategory" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" list="qCatList">
-                        <datalist id="qCatList"></datalist>
                     </div>
 
-                    <div>
-                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Brand</label>
+                    <div style="grid-column: span 2;">
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Brand Name</label>
                         <input type="text" id="qBrand" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" list="qBrandList">
-                        <datalist id="qBrandList"></datalist>
                     </div>
                     
                     <div style="grid-column: span 2;">
@@ -326,11 +318,58 @@
                     </div>
 
                     <div style="grid-column: span 2;">
-                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Image Reference (URL/Path)</label>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Image URL</label>
                         <input type="text" id="qImage" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" placeholder="e.g. Products_Images/item.jpg">
                     </div>
+
+                    <!-- GROCERY SPECIFIC FIELDS -->
+                    <div id="fields-grocery" style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #16a34a; margin-bottom: 4px; display: block;">Purchase Rate (₹)</label>
+                            <input type="number" id="qPurchaseRate" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" step="0.01">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #16a34a; margin-bottom: 4px; display: block;">MOQ (Low Stock Alert)</label>
+                            <input type="number" id="qMoq" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" value="1">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label style="font-size: 11px; font-weight: bold; color: #16a34a; margin-bottom: 4px; display: block;">Expiry Date</label>
+                            <input type="date" id="qExpiry" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                    </div>
+
+                    <!-- ICE CREAM SPECIFIC FIELDS -->
+                    <div id="fields-icecream" style="grid-column: span 2; display: none; grid-template-columns: 1fr 1fr; gap: 15px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #d97706; margin-bottom: 4px; display: block;">Available</label>
+                            <select id="qAvailable" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; font-weight: bold; color: #d97706; margin-bottom: 4px; display: block;">Launching Year</label>
+                            <input type="text" id="qLaunchYear" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" placeholder="e.g. 2026">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label style="font-size: 11px; font-weight: bold; color: #d97706; margin-bottom: 4px; display: block;">Description</label>
+                            <input type="text" id="qDesc" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label style="font-size: 11px; font-weight: bold; color: #d97706; margin-bottom: 4px; display: block;">Ingredients</label>
+                            <input type="text" id="qIng" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                    </div>
+
                 </div>
             </div>
+            
+            <div style="padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; gap: 10px;">
+                <button id="btn-save-item" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: bold; font-size: 14px; background: #22c55e;" onclick="saveNewItem()">💾 ADD TO DATABASE</button>
+            </div>
+            
+        </div>
+    </div>
             
             <!-- Sticky Footer Button -->
             <div style="padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; gap: 10px;">
