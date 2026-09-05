@@ -14,14 +14,14 @@
         <!-- Unified Navigation Bar -->
         <header class="topbar no-print">
             <div class="topbar-brand">GLACIER ERP</div>
-            <div class="topbar-actions" style="display: flex; gap: 10px;">
-                <button class="btn" style="background: #4b5563; color: white; margin-left: 5px;" onclick="CalculatorApp.toggle()">🖩 Calc (F9)</button>
-                <button onclick="window.location.href='index.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">🛒 POS</button>
-                <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
-                <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
-                <button onclick="InventoryApp.sync()" class="btn btn-sync" id="network-status">↻ Sync Data</button>
-                <button class="btn" style="background: #1f2937; border: 1px solid #374151; color: white; margin-left: 5px;" onclick="SettingsApp.open()">⚙️ Settings</button>
-            </div>
+            <div class="topbar-actions" style="display: flex; gap: 10px; align-items: center;">
+            <button onclick="window.location.href='index.html'" class="btn btn-primary" style="background: #2563eb; color: white;">🛒 POS</button>
+            <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
+            <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
+            <button onclick="window.location.href='purchase_order.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📝 Order (PO)</button>
+            <button class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;" onclick="SettingsApp.open()">⚙️ Settings</button>
+            <button onclick="InventoryApp.sync()" class="btn btn-warning" id="network-status" style="background: #f59e0b; color: white;">↻ Sync Data</button>
+        </div>
         </header>
 
         <!-- Main Workspace -->
