@@ -836,6 +836,49 @@ const CalculatorApp = {
     }
 };
 
+// --- SETTINGS LOGIC ---
+const SettingsApp = {
+    config: {
+        firmName: 'GLACIER ICE CREAM PARLOR',
+        gstin: '',
+        fssai: '',
+        address: 'Jaipur, Rajasthan',
+        contact: '',
+        gstType: 'Regular',
+        footer: 'Thank You! Visit Again.'
+    },
+    init() {
+        const saved = localStorage.getItem('glacier_settings');
+        if (saved) this.config = { ...this.config, ...JSON.parse(saved) };
+    },
+    open() {
+        document.getElementById('setFirmName').value = this.config.firmName;
+        document.getElementById('setGstin').value = this.config.gstin;
+        document.getElementById('setFssai').value = this.config.fssai;
+        document.getElementById('setAddress').value = this.config.address;
+        document.getElementById('setContact').value = this.config.contact;
+        document.getElementById('setGstType').value = this.config.gstType;
+        document.getElementById('setFooter').value = this.config.footer;
+        document.getElementById('settingsModal').classList.add('active');
+    },
+    close() {
+        document.getElementById('settingsModal').classList.remove('active');
+    },
+    save() {
+        this.config = {
+            firmName: document.getElementById('setFirmName').value || 'GLACIER',
+            gstin: document.getElementById('setGstin').value,
+            fssai: document.getElementById('setFssai').value,
+            address: document.getElementById('setAddress').value,
+            contact: document.getElementById('setContact').value,
+            gstType: document.getElementById('setGstType').value,
+            footer: document.getElementById('setFooter').value || 'Thank You! Visit Again.'
+        };
+        localStorage.setItem('glacier_settings', JSON.stringify(this.config));
+        this.close();
+    }
+};
+
 window.addEventListener('DOMContentLoaded', () => CalculatorApp.init());
 
 // --- INITIALIZATION ---
