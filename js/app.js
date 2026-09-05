@@ -7,27 +7,30 @@ const toTitleCase = (str) => {
     return String(str).toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
 };
 
-document.addEventListener('keydown', (e) => {
-    // NEW: F9 toggles the calculator globally
-    if (e.key === 'F9') { e.preventDefault(); CalculatorApp.toggle(); return; }
+if(e.key === 'Escape') { 
+        // FIX: Double-Esc Calculator Logic
+        if (CalculatorApp.isOpen) {
+            e.preventDefault();
+            const display = document.getElementById('calc-display');
+            // If the screen shows absolutely anything other than '0' (including 'Error'), clear it.
+            if (display.value !== '0') {
+                CalculatorApp.clear(); 
+            } else {
+                CalculatorApp.close(); 
+            }
+            return; 
+        }
 
-    if (CalculatorApp.isOpen) {
-        const validKeys = '0123456789+-*/.%';
-        if (validKeys.includes(e.key)) {
-            e.preventDefault();
-            CalculatorApp.append(e.key);
-            return;
+        // Standard Esc behavior
+        document.getElementById('paymentModal')?.classList.remove('active');
+        document.getElementById('quickAddModal')?.classList.remove('active');
+        if(document.getElementById('printWrapper')?.classList.contains('active')) {
+            // Check if we are on POS page or Registers page to call the right close function
+            if(typeof CartApp !== 'undefined') CartApp.closePrintAndReset();
+            else if(typeof RegisterApp !== 'undefined') RegisterApp.closePrint();
         }
-        if (e.key === 'Enter' || e.key === '=') {
-            e.preventDefault();
-            CalculatorApp.calculate();
-            return;
-        }
-        if (e.key === 'Backspace') {
-            e.preventDefault();
-            CalculatorApp.backspace();
-            return;
-        }
+        return; 
+    }
     }
 
     if(e.key === 'F4') { e.preventDefault(); CartApp.openPaymentPopup(); return; }
