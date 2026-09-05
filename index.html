@@ -3,25 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLACIER ERP-Retail POS 05092026-20:48</title>
+    <title>GLACIER ERP-Retail POS</title>
     <link rel="stylesheet" href="css/pos.css">
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- Top Navigation Bar (Replaces Sidebar) -->
         <!-- Top Navigation Bar -->
-        <!-- Unified Navigation Bar -->
         <header class="topbar no-print">
             <div class="topbar-brand">GLACIER ERP</div>
             <div class="topbar-actions" style="display: flex; gap: 10px; align-items: center;">
-            <button onclick="window.location.href='index.html'" class="btn btn-primary" style="background: #2563eb; color: white;">🛒 POS</button>
-            <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
-            <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
-            <button onclick="window.location.href='purchase_order.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📝 Order (PO)</button>
-            <button class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;" onclick="SettingsApp.open()">⚙️ Settings</button>
-            <button onclick="InventoryApp.sync()" class="btn btn-warning" id="network-status" style="background: #f59e0b; color: white;">↻ Sync Data</button>
-        </div>
+                <button onclick="window.location.href='index.html'" class="btn btn-primary" style="background: #2563eb; color: white;">🛒 POS</button>
+                <button onclick="window.location.href='purchase.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📦 Purchase</button>
+                <button onclick="window.location.href='registers.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📄 Registers</button>
+                <button onclick="window.location.href='purchase_order.html'" class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;">📝 Order (PO)</button>
+                <button class="btn" style="background: #1f2937; border: 1px solid #374151; color: white;" onclick="SettingsApp.open()">⚙️ Settings</button>
+                <button onclick="InventoryApp.sync()" class="btn btn-warning" id="network-status" style="background: #f59e0b; color: white;">↻ Sync Data</button>
+            </div>
         </header>
 
         <!-- Main Workspace -->
@@ -58,10 +56,9 @@
 
                 <!-- Right Panel: Cart / Billing -->
                 <div class="cart-area">
-                <div class="cart-tabs" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="cart-tabs" style="display: flex; justify-content: space-between; align-items: center;">
                         <button class="cart-tab active">Main Bill</button>
                         <div class="cart-actions-group">
-                            <!-- NEW: Return Mode Toggle -->
                             <label style="font-size: 11px; font-weight: bold; color: #ef4444; display: flex; align-items: center; gap: 4px; cursor: pointer; padding-right: 10px; border-right: 1px solid #ccc; margin-right: 5px;">
                                 <input type="checkbox" id="chkReturnMode"> ↩️ Return Mode
                             </label>                        
@@ -134,24 +131,22 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                        <label style="width: 60px; font-weight: bold;">Cash</label>
-                        <!-- FIX: Removed min="0" so you can type negative refund payouts -->
-                        <input type="number" id="payCash" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px; color: var(--success);" step="0.01">
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                        <label style="width: 60px; font-weight: bold;">UPI</label>
-                        <input type="number" id="payUPI" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px;" step="0.01">
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
-                        <label style="width: 60px; font-weight: bold;">Card</label>
-                        <input type="number" id="payCard" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px;" step="0.01">
-                    </div>
+                    <label style="width: 60px; font-weight: bold;">Cash</label>
+                    <input type="number" id="payCash" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px; color: var(--success);" step="0.01">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                    <label style="width: 60px; font-weight: bold;">UPI</label>
+                    <input type="number" id="payUPI" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px;" step="0.01">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+                    <label style="width: 60px; font-weight: bold;">Card</label>
+                    <input type="number" id="payCard" class="cart-input" placeholder="0.00" style="flex: 1; font-size: 16px;" step="0.01">
+                </div>
                 <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
                     <label id="lblBalance" style="width: 80px; font-weight: bold; color: var(--danger);">Due</label>
                     <input type="text" id="payBalance" class="filter-input" style="flex: 1; font-size: 20px; font-weight: bold; background: #f9fafb;" disabled value="0.00">
                 </div>
             </div>
-            <!-- Add this right above your payment modal buttons -->
             <div style="margin-top: 15px; margin-bottom: 15px; text-align: center;">
                 <label style="cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-main);">
                     <input type="checkbox" id="chkPrintReceipt" checked> 🖨️ Print Receipt after Saving
@@ -258,111 +253,93 @@
         </div>
     </div>
     
-<!-- Add Item Modal -->
-    <div id="quickAddModal" class="modal-overlay no-print">
-        <div class="modal-box" style="width: 500px;">
-            <div class="modal-header">
-                <span>➕ Add Master Item</span>
-                <span class="close-modal-icon" onclick="document.getElementById('quickAddModal').classList.remove('active')" style="cursor:pointer; font-size: 20px;">×</span>
+    <!-- Quick Add Modal (FIXED) -->
+    <div id="quickAddModal" class="modal-overlay" style="align-items: center; justify-content: center;">
+        <div style="background: white; width: 500px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+            
+            <!-- Modal Header -->
+            <div style="padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: #1d4ed8; font-size: 16px;">⊞ Add Master Item</h3>
+                <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="document.getElementById('quickAddModal').classList.remove('active')">×</button>
             </div>
             
-            <div style="margin-bottom: 15px;">
-                <label style="font-weight: bold; font-size: 12px; color: var(--text-muted);">TARGET DATABASE</label>
-                <select id="qTarget" class="filter-input" style="width: 100%; font-weight: bold; border-color: var(--primary);" onchange="toggleItemFields()">
-                    <option value="grocery">🛒 Grocery Store</option>
-                    <option value="icecream">🍦 Ice Cream Menu</option>
-                </select>
-            </div>
+            <!-- Scrollable Form Area -->
+            <div style="padding: 20px; overflow-y: auto;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    
+                    <div style="grid-column: span 2;">
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">TARGET DATABASE</label>
+                        <select id="qTarget" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" onchange="toggleItemFields()">
+                            <option value="grocery">🛒 Grocery Store</option>
+                            <option value="icecream">🍦 Ice Cream Parlor</option>
+                        </select>
+                    </div>
 
-            <div style="margin-bottom: 10px;">
+                    <div style="grid-column: span 2;">
                         <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Barcode</label>
                         <div style="display: flex; gap: 5px;">
-                            <input type="text" id="qBarcode" class="cart-input" style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="Scan or Type...">
+                            <input type="text" id="qBarcode" class="cart-input" style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" placeholder="Scan or Type...">
                             <button type="button" class="btn" style="background: #e2e8f0; color: #1e293b; padding: 0 15px; font-weight: bold; font-size: 12px; border: 1px solid #cbd5e1;" onclick="generateSystemBarcode()" title="Generate Unique Barcode">⚡ Auto</button>
                         </div>
                     </div>
+
+                    <div style="grid-column: span 2;">
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Item Name *</label>
+                        <input type="text" id="qName" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">MRP (₹)</label>
+                        <input type="number" id="qMrp" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" step="0.01">
+                    </div>
+
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Selling Rate (₹) *</label>
+                        <input type="number" id="qPrice" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" step="0.01">
+                    </div>
+                    
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Opening Stock Qty</label>
+                        <input type="number" id="qQty" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" value="0">
+                    </div>
+
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">MOQ (Low Stock Alert)</label>
+                        <input type="number" id="qMoq" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" value="1">
+                    </div>
+
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Category</label>
+                        <input type="text" id="qCategory" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" list="qCatList">
+                        <datalist id="qCatList"></datalist>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Brand</label>
+                        <input type="text" id="qBrand" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" list="qBrandList">
+                        <datalist id="qBrandList"></datalist>
+                    </div>
+                    
+                    <div style="grid-column: span 2;">
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Tags (Comma separated)</label>
+                        <input type="text" id="qTags" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" placeholder="Vegan, SugarFree">
+                    </div>
+
+                    <div style="grid-column: span 2;">
+                        <label style="font-size: 11px; font-weight: bold; color: #64748b; margin-bottom: 4px; display: block;">Image Reference (URL/Path)</label>
+                        <input type="text" id="qImage" class="cart-input" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;" placeholder="e.g. Products_Images/item.jpg">
+                    </div>
+                </div>
+            </div>
             
-                <div style="flex: 2;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Item Name *</label>
-                    <input type="text" id="qName" class="filter-input" style="width: 100%;">
-                </div>
+            <!-- Sticky Footer Button -->
+            <div style="padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: bold; font-size: 14px; background: #22c55e;" onclick="saveNewItem()">💾 ADD TO DATABASE</button>
             </div>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Category</label>
-                    <input type="text" id="qCategory" class="filter-input" style="width: 100%;" list="qCatList">
-                    <datalist id="qCatList"></datalist>
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Brand</label>
-                    <input type="text" id="qBrand" class="filter-input" style="width: 100%;" list="qBrandList">
-                    <datalist id="qBrandList"></datalist>
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">MRP (₹)</label>
-                    <input type="number" id="qMRP" class="filter-input" style="width: 100%;" min="0">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Selling Rate (₹) *</label>
-                    <input type="number" id="qPrice" class="filter-input" style="width: 100%;" min="0">
-                </div>
-            </div>
-
-            <div style="margin-bottom: 10px;">
-                <label style="font-size: 12px; color: var(--text-muted);">Image Reference (File Path or AppSheet Link)</label>
-                <input type="text" id="qImage" class="filter-input" style="width: 100%;" placeholder="e.g. Products_Images/item.jpg">
-            </div>
-
-            <!-- GROCERY SPECIFIC FIELDS -->
-            <div id="fields-grocery" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Opening Stock Qty</label>
-                    <input type="number" id="qQty" class="filter-input" style="width: 100%;" value="0">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 12px; color: var(--text-muted);">Min. Order Qty (MOQ)</label>
-                    <input type="number" id="qMOQ" class="filter-input" style="width: 100%;" value="1">
-                </div>
-            </div>
-
-            <!-- ICE CREAM SPECIFIC FIELDS -->
-            <div id="fields-icecream" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 10px;">
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 12px; color: var(--text-muted);">Available</label>
-                        <select id="qAvailable" class="filter-input" style="width: 100%;">
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                        </select>
-                    </div>
-                    <div style="flex: 1;">
-                        <label style="font-size: 12px; color: var(--text-muted);">Launch Year & Month</label>
-                        <input type="month" id="qLaunchYear" class="filter-input" style="width: 100%; font-family: inherit;">
-                    </div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 12px; color: var(--text-muted);">Tags</label>
-                        <input type="text" id="qTags" class="filter-input" style="width: 100%;" placeholder="Vegan, SugarFree">
-                    </div>
-                </div>
-                <div>
-                    <label style="font-size: 12px; color: var(--text-muted);">Description</label>
-                    <input type="text" id="qDesc" class="filter-input" style="width: 100%;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; color: var(--text-muted);">Ingredients</label>
-                    <input type="text" id="qIng" class="filter-input" style="width: 100%;">
-                </div>
-            </div>
-
-            <button class="btn btn-success" id="btn-save-item" style="width: 100%; padding: 12px; font-size: 16px; font-weight: bold; margin-top: 15px;" onclick="saveNewItem()">💾 ADD TO DATABASE</button>
+            
         </div>
     </div>
+
     <!-- Recall Bill Modal -->
     <div id="recallModal" class="modal-overlay no-print">
         <div class="modal-box" style="width: 450px;">
@@ -375,7 +352,8 @@
             </div>
         </div>
     </div>
-<!-- Camera Scanner Modal -->
+
+    <!-- Camera Scanner Modal -->
     <div id="scannerModal" class="modal-overlay no-print">
         <div class="modal-box" style="width: 90%; max-width: 400px; padding: 10px;">
             <div class="modal-header">
@@ -394,42 +372,40 @@
     <script src="js/app.js"></script>
 
     <!-- Floating Calculator Widget -->
-<div id="floating-calculator" style="display: none; position: fixed; top: 80px; right: 20px; width: 250px; background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; border: 1px solid #cbd5e1; user-select: none;">
-    <div id="calc-header" style="background: #1f2937; color: white; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: move; display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-weight: bold; font-size: 13px;">🖩 Calculator</span>
-        <span style="cursor: pointer; font-size: 18px; line-height: 1;" onclick="CalculatorApp.close()">×</span>
-    </div>
-    <div style="padding: 15px; background: #f8fafc; border-radius: 0 0 8px 8px;">
-        <!-- Default value "0" and max length 16 -->
-        <input type="text" id="calc-display" value="0" readonly maxlength="16" style="width: 100%; padding: 10px; font-size: 20px; text-align: right; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; background: white; color: black; font-family: monospace;">
-        
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-            <button class="btn" style="background:#ef4444; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.clear()">C<br><span style="font-size: 10px; opacity: 0.8;">Esc</span></button>
-            <button class="btn" style="background:#e2e8f0; color:black; padding:6px; line-height: 1.2;" onclick="CalculatorApp.backspace()">⌫<br><span style="font-size: 10px; opacity: 0.6;">Bksp</span></button>
-            <button class="btn" style="background:#e2e8f0; color:black; padding:6px; line-height: 1.2;" onclick="CalculatorApp.append('%')">%</button>
-            <button class="btn" style="background:#f59e0b; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.append('/')">÷<br><span style="font-size: 10px; opacity: 0.8;">/</span></button>
+    <div id="floating-calculator" style="display: none; position: fixed; top: 80px; right: 20px; width: 250px; background: white; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; border: 1px solid #cbd5e1; user-select: none;">
+        <div id="calc-header" style="background: #1f2937; color: white; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: move; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; font-size: 13px;">🖩 Calculator</span>
+            <span style="cursor: pointer; font-size: 18px; line-height: 1;" onclick="CalculatorApp.close()">×</span>
+        </div>
+        <div style="padding: 15px; background: #f8fafc; border-radius: 0 0 8px 8px;">
+            <input type="text" id="calc-display" value="0" readonly maxlength="16" style="width: 100%; padding: 10px; font-size: 20px; text-align: right; border: 1px solid #cbd5e1; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; background: white; color: black; font-family: monospace;">
             
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('7')">7</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('8')">8</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('9')">9</button>
-            <button class="btn" style="background:#f59e0b; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.append('*')">×<br><span style="font-size: 10px; opacity: 0.8;">*</span></button>
-            
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('4')">4</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('5')">5</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('6')">6</button>
-            <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('-')">-</button>
-            
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('1')">1</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('2')">2</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('3')">3</button>
-            <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('+')">+</button>
-            
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1; grid-column: span 2;" onclick="CalculatorApp.append('0')">0</button>
-            <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('.')">.</button>
-            <button class="btn" style="background:#10b981; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.calculate()">=<br><span style="font-size: 10px; opacity: 0.8;">Ent</span></button>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                <button class="btn" style="background:#ef4444; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.clear()">C<br><span style="font-size: 10px; opacity: 0.8;">Esc</span></button>
+                <button class="btn" style="background:#e2e8f0; color:black; padding:6px; line-height: 1.2;" onclick="CalculatorApp.backspace()">⌫<br><span style="font-size: 10px; opacity: 0.6;">Bksp</span></button>
+                <button class="btn" style="background:#e2e8f0; color:black; padding:6px; line-height: 1.2;" onclick="CalculatorApp.append('%')">%</button>
+                <button class="btn" style="background:#f59e0b; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.append('/')">÷<br><span style="font-size: 10px; opacity: 0.8;">/</span></button>
+                
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('7')">7</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('8')">8</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('9')">9</button>
+                <button class="btn" style="background:#f59e0b; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.append('*')">×<br><span style="font-size: 10px; opacity: 0.8;">*</span></button>
+                
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('4')">4</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('5')">5</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('6')">6</button>
+                <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('-')">-</button>
+                
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('1')">1</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('2')">2</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('3')">3</button>
+                <button class="btn" style="background:#f59e0b; color:white; padding:10px;" onclick="CalculatorApp.append('+')">+</button>
+                
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1; grid-column: span 2;" onclick="CalculatorApp.append('0')">0</button>
+                <button class="btn" style="background:white; color:black; padding:10px; border:1px solid #cbd5e1;" onclick="CalculatorApp.append('.')">.</button>
+                <button class="btn" style="background:#10b981; color:white; padding:6px; line-height: 1.2;" onclick="CalculatorApp.calculate()">=<br><span style="font-size: 10px; opacity: 0.8;">Ent</span></button>
+            </div>
         </div>
     </div>
-</div>
-    
 </body>
 </html>
