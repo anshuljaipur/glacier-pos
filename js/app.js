@@ -774,8 +774,10 @@ async function saveNewItem() {
         payload.ingredients = document.getElementById('qIng')?.value || '';
     }
 
-    try {
-        await API.saveNewItem(payload);
+   try {
+        // FIX: Changed from API.saveNewItem to API.createItem to match your api.js file
+        await API.createItem(payload);
+        
         document.getElementById('quickAddModal').classList.remove('active');
         
         // Reset the form
