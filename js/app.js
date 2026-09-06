@@ -734,66 +734,63 @@ function toggleItemFields() {
 }
 
 async function saveNewItem() {
-    if (isSavingItem) return; 
+    // Safely grab core fields
+    const target = document.getElementById('qTarget')?.value || 'grocery';
+    const name = document.getElementById('qName')?.value.trim();
+    let barcode = document.getElementById('qBarcode')?.value.trim();
     
-    const target = document.getElementById('qTarget').value;
-    const name = document.getElementById('qName').value.trim();
-    const price = document.getElementById('qPrice').value;
-
-    if(!name || !price) {
-        alert("Item Name and Selling Rate are mandatory.");
-        return;
+    if (!name) return alert("Item Name is required!");
+    if (!barcode) {
+        generateSystemBarcode();
+        barcode = document.getElementById('qBarcode').value;
     }
-
-    isSavingItem = true;
-    const btn = document.getElementById('btn-save-item');
-    btn.textContent = "⏳ SAVING...";
-    btn.disabled = true;
     
-    document.getElementById('quickAddModal').classList.remove('active');
-    const netStatus = document.getElementById('network-status');
-    if(netStatus) netStatus.textContent = "↻ Syncing New Item...";
+    const btn = document.getElementById('btn-save-item');
+    if (btn) btn.textContent = "⏳ Saving...";
 
-    // Auto-generate if left completely blank
-    if (!document.getElementById('qBarcode').value.trim()) generateSystemBarcode();
+    // Safely map common fields using optional chaining (?.)
     const payload = {
         target: target,
-        barcode: document.getElementById('qBarcode').value.trim(),
-        name: name,
-        category: document.getElementById('qCategory').value.trim(),
-        brand: document.getElementById('qBrand').value.trim(),
-        mrp: document.getElementById('qMRP').value,
-        price: price,
-        image: document.getElementById('qImage').value.trim()
+        barcode: barcode,
+        itemname: name,
+        mrp: document.getElementById('qMrp')?.value || document.getElementById('qMRP')?.value || 0,
+        rate: document.getElementById('qPrice')?.value || 0, 
+        quantity: document.getElementById('qQty')?.value || 0, 
+        category: document.getElementById('qCategory')?.value || '',
+        brandname: document.getElementById('qBrand')?.value || '',
+        tags: document.getElementById('qTags')?.value || '',
+        image: document.getElementById('qImage')?.value || ''
     };
 
-    if(target === 'grocery') {
-        payload.quantity = document.getElementById('qQty').value || 0;
-        payload.moq = document.getElementById('qMOQ').value || 1;
+    // Safely map unique fields
+    if (target === 'grocery') {
+        payload.moq = document.getElementById('qMoq')?.value || document.getElementById('qMOQ')?.value || 1;
+        payload.purchaseRate = document.getElementById('qPurchaseRate')?.value || 0;
+        payload.expiryDate = document.getElementById('qExpiry')?.value || '';
     } else {
-        payload.available = document.getElementById('qAvailable').value;
-        payload.launchingyear = document.getElementById('qLaunchYear').value; 
-        payload.tags = document.getElementById('qTags').value;
-        payload.description = document.getElementById('qDesc').value;
-        payload.ingredients = document.getElementById('qIng').value;
+        payload.available = document.getElementById('qAvailable')?.value || 'Yes';
+        payload.launchingyear = document.getElementById('qLaunchYear')?.value || '';
+        payload.description = document.getElementById('qDesc')?.value || '';
+        payload.ingredients = document.getElementById('qIng')?.value || '';
     }
 
     try {
-        await API.createItem(payload);
+        await API.saveNewItem(payload);
+        document.getElementById('quickAddModal').classList.remove('active');
         
-        ['qBarcode', 'qName', 'qCategory', 'qBrand', 'qMRP', 'qPrice', 'qImage', 'qQty', 'qLaunchYear', 'qTags', 'qDesc', 'qIng'].forEach(id => {
-            if(document.getElementById(id)) document.getElementById(id).value = '';
-        });
+        // Reset the form
+        document.getElementById('qName').value = '';
+        document.getElementById('qBarcode').value = '';
+        if(document.getElementById('qMrp')) document.getElementById('qMrp').value = '';
+        if(document.getElementById('qPrice')) document.getElementById('qPrice').value = '';
+        if(document.getElementById('qQty')) document.getElementById('qQty').value = '0';
         
-        await InventoryApp.sync(); 
-        alert("Item added successfully!");
-    } catch(e) {
-        alert("Failed to save item: " + e.message);
-        if(netStatus) netStatus.textContent = "⚠ Offline Mode";
+        InventoryApp.sync(); // Refresh main grid
+    } catch (e) {
+        console.error(e);
+        alert("Failed to save item. Please ensure backend is updated.");
     } finally {
-        isSavingItem = false;
-        btn.textContent = "💾 ADD TO DATABASE";
-        btn.disabled = false;
+        if (btn) btn.innerHTML = "💾 ADD TO DATABASE";
     }
 }
 
