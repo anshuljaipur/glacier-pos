@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings | Glacier ERP</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">GLACIER POS</div>
+    <div class="nav-links">
+        <a href="index.html" data-page="index.html">🛒 POS</a>
+        <a href="purchase.html" data-page="purchase.html">📦 Purchase</a>
+        <a href="purchase_order.html" data-page="purchase_order.html">📝 Orders</a>
+        <a href="inventory.html" data-page="inventory.html">🗂 Inventory</a>
+        <a href="registers.html" data-page="registers.html">📒 Registers</a>
+        <a href="dashboard.html" data-page="dashboard.html">📊 Dashboard</a>
+        <a href="settings.html" data-page="settings.html">⚙ Settings</a>
+    </div>
+    <div class="nav-right">
+        <span class="user-email" id="current-user"></span>
+        <button class="btn-logout" id="btn-logout">Logout</button>
+    </div>
+</div>
+
+<div class="page" style="max-width:600px;">
+    <div class="card">
+        <h3 style="margin-top:0;">Store Profile</h3>
+        <div class="form-group"><label>Store Name</label><input type="text" id="setStoreName"></div>
+        <div class="form-group"><label>Address</label><input type="text" id="setAddress"></div>
+        <div class="form-row">
+            <div class="form-group"><label>Phone</label><input type="text" id="setPhone"></div>
+            <div class="form-group"><label>GSTIN (optional)</label><input type="text" id="setGstin"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Invoice Prefix</label><input type="text" id="setInvoicePrefix"></div>
+            <div class="form-group"><label>Default Low Stock Alert (MOQ)</label><input type="number" id="setLowStock"></div>
+        </div>
+        <div class="form-group"><label>Receipt Footer</label><textarea id="setFooter" rows="2"></textarea></div>
+        <button class="btn btn-success btn-block" id="btn-save-settings">Save Settings</button>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/store.js"></script>
+<script src="js/settings.js"></script>
+</body>
+</html>

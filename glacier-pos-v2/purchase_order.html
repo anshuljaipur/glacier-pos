@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchase Orders | Glacier ERP</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">GLACIER POS</div>
+    <div class="nav-links">
+        <a href="index.html" data-page="index.html">🛒 POS</a>
+        <a href="purchase.html" data-page="purchase.html">📦 Purchase</a>
+        <a href="purchase_order.html" data-page="purchase_order.html">📝 Orders</a>
+        <a href="inventory.html" data-page="inventory.html">🗂 Inventory</a>
+        <a href="registers.html" data-page="registers.html">📒 Registers</a>
+        <a href="dashboard.html" data-page="dashboard.html">📊 Dashboard</a>
+        <a href="settings.html" data-page="settings.html">⚙ Settings</a>
+    </div>
+    <div class="nav-right">
+        <span class="user-email" id="current-user"></span>
+        <button class="btn-logout" id="btn-logout">Logout</button>
+    </div>
+</div>
+
+<div class="page">
+    <div class="grid-2">
+        <div class="card">
+            <h3 style="margin-top:0;">New Purchase Order</h3>
+            <div class="form-group"><label>Supplier *</label><input type="text" id="poSupplier"></div>
+            <div class="form-group" style="position:relative;">
+                <label>Add Item</label>
+                <div class="flex">
+                    <input type="text" id="poItemSearch" placeholder="Search item…">
+                    <input type="number" id="poItemQty" value="1" style="max-width:80px;">
+                    <button class="btn btn-primary" id="btn-add-po-item">Add</button>
+                </div>
+                <div id="poSuggestions" style="position:absolute; background:#fff; border:1px solid var(--border); border-radius:8px; width:100%; z-index:20; max-height:200px; overflow:auto;"></div>
+            </div>
+            <div id="poDraftBody" class="mt-2" style="min-height:60px;"></div>
+            <div class="form-group mt-2"><label>Notes</label><textarea id="poNotes" rows="2"></textarea></div>
+            <button class="btn btn-success btn-block" id="btn-create-po">Create Purchase Order</button>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-top:0;">Existing Orders</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Supplier</th><th>Items</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody id="poListBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/store.js"></script>
+<script src="js/purchase-order.js"></script>
+</body>
+</html>

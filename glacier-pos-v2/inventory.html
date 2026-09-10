@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory | Glacier ERP</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">GLACIER POS</div>
+    <div class="nav-links">
+        <a href="index.html" data-page="index.html">🛒 POS</a>
+        <a href="purchase.html" data-page="purchase.html">📦 Purchase</a>
+        <a href="purchase_order.html" data-page="purchase_order.html">📝 Orders</a>
+        <a href="inventory.html" data-page="inventory.html">🗂 Inventory</a>
+        <a href="registers.html" data-page="registers.html">📒 Registers</a>
+        <a href="dashboard.html" data-page="dashboard.html">📊 Dashboard</a>
+        <a href="settings.html" data-page="settings.html">⚙ Settings</a>
+    </div>
+    <div class="nav-right">
+        <span class="user-email" id="current-user"></span>
+        <button class="btn-logout" id="btn-logout">Logout</button>
+    </div>
+</div>
+
+<div class="page">
+    <div class="card">
+        <div class="flex-between" style="flex-wrap:wrap; gap:10px;">
+            <h3 style="margin:0;">Inventory (<span id="invCount">0 items</span>)</h3>
+            <div class="flex">
+                <input type="text" id="invSearch" placeholder="Search name or barcode…" style="width:220px;">
+                <select id="invFilter" style="width:150px;">
+                    <option value="">All Items</option>
+                    <option value="low">Low Stock</option>
+                    <option value="oos">Out of Stock</option>
+                </select>
+                <button class="btn btn-outline" id="btn-import-csv">⬆ Import CSV</button>
+                <button class="btn btn-primary" id="btn-add-product">+ Add Item</button>
+            </div>
+        </div>
+        <div class="table-wrap mt-2">
+            <table>
+                <thead><tr><th>Item</th><th>Barcode</th><th>Category</th><th>MRP</th><th>Rate</th><th>Stock</th><th>Brand</th><th>Actions</th></tr></thead>
+                <tbody id="invTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="productFormModal">
+    <div class="modal">
+        <div class="modal-head"><h2 id="productFormTitle">Add Item</h2><button class="modal-close" onclick="closeModal('productFormModal')">&times;</button></div>
+        <div class="form-row">
+            <div class="form-group"><label>Barcode *</label><div class="flex"><input type="text" id="pBarcode"><button class="btn btn-outline btn-sm" id="btn-gen-barcode-inv">Gen</button></div></div>
+            <div class="form-group"><label>Item Name *</label><input type="text" id="pName"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Category</label><input type="text" id="pCategory"></div>
+            <div class="form-group"><label>Brand</label><input type="text" id="pBrand"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>MRP (₹)</label><input type="number" id="pMrp"></div>
+            <div class="form-group"><label>Selling Rate (₹)</label><input type="number" id="pRate"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Purchase Rate (₹)</label><input type="number" id="pPurchaseRate"></div>
+            <div class="form-group"><label>Current Stock</label><input type="number" id="pQty"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Low Stock Alert (MOQ)</label><input type="number" id="pMoq"></div>
+            <div class="form-group"><label>Expiry Date</label><input type="date" id="pExpiry"></div>
+        </div>
+        <div class="form-group"><label>Tags (comma separated)</label><input type="text" id="pTags"></div>
+        <div class="form-group"><label>Image URL</label><input type="text" id="pImage"></div>
+        <button class="btn btn-success btn-block" id="btn-save-product">Save Item</button>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="importModal">
+    <div class="modal">
+        <div class="modal-head"><h2>⬆ Bulk Import from CSV</h2><button class="modal-close" onclick="closeModal('importModal')">&times;</button></div>
+        <p class="text-muted" style="font-size:13px;">One-time migration helper — e.g. from your old Google Sheet. Every row is added as a NEW item, so don't run the same file twice.</p>
+        <button class="btn btn-outline btn-block" id="btn-download-template">Download CSV Template</button>
+        <div class="form-group mt-2"><label>CSV File</label><input type="file" id="csvFile" accept=".csv"></div>
+        <button class="btn btn-success btn-block" id="btn-run-import">Import</button>
+        <div id="importResult" class="text-muted mt-2" style="font-size:13px;"></div>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/store.js"></script>
+<script src="js/inventory.js"></script>
+</body>
+</html>
