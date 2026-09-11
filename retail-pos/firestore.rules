@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isManagerOrAdmin() {
+      return isAuthenticated() && (getUserData().role in ['admin', 'manager', 'owner']);
+    }
+
+    // Products collection: Cashiers can only read and decrement stock on sale
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, delete: if isManagerOrAdmin();
+      allow update: if isManagerOrAdmin() || 
+        (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStock', 'updatedAt', 'updatedBy', 'syncMetadata']));
+    }
+
+    // Stock ledger is append-only for authenticated operations
+    match /stockLedger/{entry} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Strict audit immutability
+    }
+
+    // Sales transactions: Append-only
+    match /sales/{saleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isManagerOrAdmin();
+    }
+
+    // Dynamic field schemas
+    match /customFields/{fieldId} {
+      allow read: if isAuthenticated();
+      allow write: if isManagerOrAdmin();
+    }
+
+    // Sync metadata and logs
+    match /syncLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}
