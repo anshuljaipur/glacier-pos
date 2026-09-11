@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sync Center - Glacier POS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body style="padding: 20px;">
+  <h1>Inventory Sync Center</h1>
+  
+  <div style="margin: 20px 0; padding: 15px; border: 1px solid #cfd8dc; background: #fff;">
+    <button id="previewSyncBtn" style="padding: 10px 20px; font-weight: bold; cursor: pointer;">1. Preview Changes</button>
+    <button id="executeSyncBtn" style="padding: 10px 20px; font-weight: bold; cursor: pointer; display: none; background: #2e7d32; color: #fff;">2. Execute Sync</button>
+    <span id="syncStatus" style="margin-left: 15px; font-weight: bold;">Ready</span>
+  </div>
+
+  <div id="previewResults" style="background: #eceff1; padding: 15px; white-space: pre-wrap; font-family: monospace;">
+    Waiting for preview...
+  </div>
+
+  <script type="module" src="js/sync-controller.js"></script>
+</body>
+</html>
