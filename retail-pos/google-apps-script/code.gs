@@ -4,7 +4,7 @@
 
 const CONFIG = {
   FIREBASE_FUNCTION_URL: "https://asia-south1-your-project-id.cloudfunctions.net",
-  AUTH_SECRET_KEY: "YOUR_SHARED_SYNC_BEARER_TOKEN", // Keep in Script Properties in production
+  AUTH_SECRET_KEY: "xU5wwKAfJZYChCP6keq0", // Keep in Script Properties in production
   SHEET_NAME_INVENTORY: "Inventory",
   SHEET_NAME_LOGS: "Sync Log",
   SHEET_NAME_STATUS: "Sync Status"
