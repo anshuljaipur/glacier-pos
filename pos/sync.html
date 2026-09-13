@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sync Center — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Inventory Sync</h1>
+
+    <div id="new-columns-banner" style="display:none;" class="error-list" style="background:var(--warn-soft);color:var(--warn);border-color:var(--warn);"></div>
+    <div id="warnings-banner" style="display:none;" class="error-list" style="background:var(--warn-soft);color:var(--warn);border-color:var(--warn);"></div>
+
+    <div class="form-grid" style="margin:1.25rem 0;">
+      <div class="field"><label>Google Sheet Products</label><div class="mono" id="s-sheet" style="font-size:1.3rem;">—</div></div>
+      <div class="field"><label>Firebase Products</label><div class="mono" id="s-firebase" style="font-size:1.3rem;">—</div></div>
+      <div class="field"><label>Sheet → Firebase</label><div class="mono" id="s-s2f" style="font-size:1.3rem;">—</div></div>
+      <div class="field"><label>Firebase → Sheet</label><div class="mono" id="s-f2s" style="font-size:1.3rem;">—</div></div>
+      <div class="field"><label>Conflicts</label><div class="mono" id="s-conflicts" style="font-size:1.3rem;">—</div></div>
+      <div class="field"><label>Missing From Sheet</label><div class="mono" id="s-missing" style="font-size:1.3rem;">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button id="preview-btn">Preview Changes</button>
+      <button id="sync-btn" class="primary">Sync Now</button>
+      <button id="refresh-btn">Refresh</button>
+      <button id="mirror-masters-btn">Mirror Masters to Sheet</button>
+      <div class="spacer"></div>
+      <span id="sync-state" class="mono" style="font-size:0.8rem;color:var(--ink-muted);"></span>
+    </div>
+
+    <div id="result-banner" style="display:none;" class="error-list"></div>
+
+    <h2 style="margin-top:1.5rem;">Preview / Pending Changes</h2>
+    <table>
+      <thead><tr><th>Product</th><th>Field</th><th class="num">Old Value</th><th class="num">New Value</th><th>Source</th><th>Action</th></tr></thead>
+      <tbody id="changes-rows"><tr><td colspan="6" style="color:var(--ink-muted);">Click "Preview Changes" to see what a sync would do.</td></tr></tbody>
+    </table>
+
+    <h2 style="margin-top:2rem;">Conflicts</h2>
+    <table>
+      <thead><tr><th>Product</th><th>Field</th><th class="num">Google Sheet</th><th class="num">Firebase</th><th></th></tr></thead>
+      <tbody id="conflict-rows"><tr><td colspan="5" style="color:var(--ink-muted);">None.</td></tr></tbody>
+    </table>
+
+    <h2 style="margin-top:2rem;">Missing From Sheet</h2>
+    <table>
+      <thead><tr><th>Product</th><th>Status</th><th></th></tr></thead>
+      <tbody id="missing-rows"><tr><td colspan="3" style="color:var(--ink-muted);">None.</td></tr></tbody>
+    </table>
+
+    <h2 style="margin-top:2rem;">Sync History</h2>
+    <table>
+      <thead><tr><th>Date</th><th class="num">Added</th><th class="num">Updated</th><th class="num">Stock Adj.</th><th class="num">Conflicts</th><th class="num">Errors</th></tr></thead>
+      <tbody id="log-rows"><tr><td colspan="6">Loading…</td></tr></tbody>
+    </table>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { previewSync, syncNow, resolveConflict, resolveMissingFromSheet, getRecentSyncLogs, mirrorMastersToSheet } from './js/sync/syncService.js';
+
+    await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'sync.html' });
+
+    let lastPreview = null;
+
+    function setState(text) { document.getElementById('sync-state').textContent = text; }
+    function setButtonsDisabled(disabled) {
+      document.getElementById('preview-btn').disabled = disabled;
+      document.getElementById('sync-btn').disabled = disabled;
+      document.getElementById('refresh-btn').disabled = disabled;
+      document.getElementById('mirror-masters-btn').disabled = disabled;
+    }
+
+    function renderStats(counts) {
+      document.getElementById('s-sheet').textContent = counts.sheetProducts;
+      document.getElementById('s-firebase').textContent = counts.firebaseProducts;
+      document.getElementById('s-s2f').textContent = counts.pendingSheetToFirebase;
+      document.getElementById('s-f2s').textContent = counts.pendingFirebaseToSheet;
+      document.getElementById('s-conflicts').textContent = counts.conflicts;
+      document.getElementById('s-missing').textContent = counts.missingFromSheet;
+    }
+
+    function renderChanges(changes) {
+      const el = document.getElementById('changes-rows');
+      if (!changes.length) { el.innerHTML = '<tr><td colspan="6" style="color:var(--ink-muted);">No pending changes — everything is in sync.</td></tr>'; return; }
+      el.innerHTML = changes.map((c) => `
+        <tr>
+          <td>${escapeHtml(c.itemName || c.productId)}</td>
+          <td>${escapeHtml(c.header || c.field)}</td>
+          <td class="num">${escapeHtml(String(c.oldValue))}</td>
+          <td class="num">${escapeHtml(String(c.newValue))}</td>
+          <td><span class="badge active">${c.source === 'GOOGLE_SHEET' ? 'Google Sheet' : 'POS'}</span></td>
+          <td>${c.action === 'STOCK_ADJUSTMENT' ? 'Stock Adjustment' : c.action}</td>
+        </tr>`).join('');
+    }
+
+    function renderConflicts(conflicts) {
+      const el = document.getElementById('conflict-rows');
+      if (!conflicts.length) { el.innerHTML = '<tr><td colspan="5" style="color:var(--ink-muted);">None.</td></tr>'; return; }
+      const rows = [];
+      for (const c of conflicts) {
+        for (const f of c.fields) {
+          rows.push(`
+            <tr>
+              <td>${escapeHtml(c.itemName || c.productId)}</td>
+              <td>${escapeHtml(f.header || f.field)}</td>
+              <td class="num">${escapeHtml(String(f.sheetValue))}</td>
+              <td class="num">${escapeHtml(String(f.firebaseValue))}</td>
+              <td>
+                <button data-resolve="${c.productId}" data-choice="USE_SHEET">Use Sheet</button>
+                <button data-resolve="${c.productId}" data-choice="USE_FIREBASE">Use Firebase</button>
+              </td>
+            </tr>`);
+        }
+      }
+      el.innerHTML = rows.join('');
+    }
+
+    function renderMissing(missing) {
+      const el = document.getElementById('missing-rows');
+      if (!missing.length) { el.innerHTML = '<tr><td colspan="3" style="color:var(--ink-muted);">None.</td></tr>'; return; }
+      el.innerHTML = missing.map((m) => `
+        <tr>
+          <td>${escapeHtml(m.itemName || m.productId)}</td>
+          <td><span class="badge ${m.status}">${m.status}</span></td>
+          <td>
+            <button data-missing="${m.productId}" data-action="ARCHIVE">Archive</button>
+            <button data-missing="${m.productId}" data-action="RESTORE">Restore to Sheet</button>
+            <button data-missing="${m.productId}" data-action="IGNORE">Ignore</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function renderNewColumns(columns) {
+      const banner = document.getElementById('new-columns-banner');
+      if (!columns || !columns.length) { banner.style.display = 'none'; return; }
+      banner.style.display = 'block';
+      banner.innerHTML = `<strong>NEW COLUMN${columns.length > 1 ? 'S' : ''} DETECTED:</strong> ${columns.map(escapeHtml).join(', ')} — add ${columns.length > 1 ? 'these' : 'this'} in Settings → Inventory Fields to sync ${columns.length > 1 ? 'them' : 'it'}, or leave as-is to ignore for now.`;
+    }
+
+    function renderWarnings(warnings) {
+      const banner = document.getElementById('warnings-banner');
+      if (!warnings || !warnings.length) { banner.style.display = 'none'; return; }
+      banner.style.display = 'block';
+      banner.innerHTML = warnings.map(escapeHtml).join('<br>');
+    }
+
+    async function renderLogs() {
+      const logs = await getRecentSyncLogs(20);
+      window.__syncLogsCache = logs;
+      const el = document.getElementById('log-rows');
+      if (!logs.length) { el.innerHTML = '<tr><td colspan="6" style="color:var(--ink-muted);">No syncs yet.</td></tr>'; return; }
+      el.innerHTML = logs.map((l, i) => `
+        <tr data-log-idx="${i}" style="cursor:pointer;">
+          <td class="mono">${l.dateTime?.toDate ? l.dateTime.toDate().toLocaleString() : '—'}</td>
+          <td class="num">${l.productsAdded || 0}</td>
+          <td class="num">${l.productsUpdated || 0}</td>
+          <td class="num">${l.stockAdjustments || 0}</td>
+          <td class="num">${l.conflicts || 0}</td>
+          <td class="num">${l.errors?.length || 0}${(l.errors?.length || l.warnings?.length) ? ' <span style="color:var(--ink-muted);font-size:0.75rem;">(details)</span>' : ''}</td>
+        </tr>`).join('');
+    }
+    document.getElementById('log-rows').addEventListener('click', (e) => {
+      const idx = e.target.closest('[data-log-idx]')?.dataset.logIdx;
+      if (idx === undefined) return;
+      const log = window.__syncLogsCache[idx];
+      const parts = [];
+      if (log.errors?.length) parts.push('<strong>Errors:</strong><br>' + log.errors.map((er) => `${escapeHtml(er.productId)}: ${escapeHtml(er.error)}`).join('<br>'));
+      if (log.warnings?.length) parts.push('<strong>Warnings:</strong><br>' + log.warnings.map(escapeHtml).join('<br>'));
+      alert(parts.length ? parts.join('\n\n').replace(/<br>/g, '\n').replace(/<[^>]+>/g, '') : 'No errors or warnings recorded for this sync.');
+    });
+
+    async function doPreview() {
+      setButtonsDisabled(true); setState('Fetching Sheet + Firebase state…');
+      try {
+        lastPreview = await previewSync();
+        renderStats(lastPreview.counts);
+        renderChanges(lastPreview.changes);
+        renderConflicts(lastPreview.conflicts);
+        renderMissing(lastPreview.missingFromSheet);
+        renderNewColumns(lastPreview.newColumns);
+        renderWarnings(lastPreview.warnings);
+        setState('Preview updated.');
+      } catch (err) {
+        setState('');
+        showResult(`⚠ Preview failed: ${err.message}`, true);
+      } finally { setButtonsDisabled(false); }
+    }
+
+    async function doSync() {
+      setButtonsDisabled(true); setState('Syncing…');
+      try {
+        const result = await syncNow();
+        const lines = [
+          `✓ ${result.productsAdded} Products Added`,
+          `✓ ${result.productsUpdated} Products Updated`,
+          `✓ ${result.stockAdjustments} Stock Adjustments`,
+          `✓ ${result.rowsPushedToSheet} Rows Pushed to Sheet`,
+          result.conflicts ? `⚠ ${result.conflicts} Conflicts — resolve below` : '✓ 0 Conflicts',
+          result.errors.length ? `⚠ ${result.errors.length} Changes Failed` : '✓ 0 Errors'
+        ];
+        showResult(lines.join('<br>'), result.errors.length > 0);
+        setState('');
+        await doPreview();
+        await renderLogs();
+      } catch (err) {
+        showResult(`⚠ Sync failed: ${err.message}`, true);
+        setState('');
+      } finally { setButtonsDisabled(false); }
+    }
+
+    function showResult(html, isError) {
+      const el = document.getElementById('result-banner');
+      el.style.display = 'block';
+      el.style.color = isError ? 'var(--danger)' : 'var(--accent)';
+      el.style.borderColor = isError ? 'var(--danger)' : 'var(--accent)';
+      el.style.background = isError ? 'var(--danger-soft)' : 'var(--accent-soft)';
+      el.innerHTML = html;
+    }
+
+    document.getElementById('preview-btn').addEventListener('click', doPreview);
+    document.getElementById('sync-btn').addEventListener('click', doSync);
+    document.getElementById('refresh-btn').addEventListener('click', async () => { await doPreview(); await renderLogs(); });
+
+    document.getElementById('mirror-masters-btn').addEventListener('click', async () => {
+      setButtonsDisabled(true); setState('Mirroring Categories/Brands/Units/Subcategories/Suppliers/Customers to the Sheet…');
+      try {
+        const { results } = await mirrorMastersToSheet();
+        const lines = results.map((r) => r.error ? `⚠ ${r.tab}: ${r.error}` : `✓ ${r.tab}: ${r.rowCount} rows`);
+        showResult(lines.join('<br>'), results.some((r) => r.error));
+      } catch (err) {
+        showResult(`⚠ Mirror failed: ${err.message}`, true);
+      } finally {
+        setState('');
+        setButtonsDisabled(false);
+      }
+    });
+
+    document.getElementById('conflict-rows').addEventListener('click', async (e) => {
+      const productId = e.target.dataset.resolve;
+      if (!productId) return;
+      e.target.closest('tr').style.opacity = '0.5';
+      try {
+        await resolveConflict(productId, e.target.dataset.choice);
+        await doPreview();
+      } catch (err) {
+        showResult(`⚠ Could not resolve conflict: ${err.message}`, true);
+      }
+    });
+
+    document.getElementById('missing-rows').addEventListener('click', async (e) => {
+      const productId = e.target.dataset.missing;
+      if (!productId) return;
+      e.target.closest('tr').style.opacity = '0.5';
+      try {
+        await resolveMissingFromSheet(productId, e.target.dataset.action);
+        await doPreview();
+      } catch (err) {
+        showResult(`⚠ Action failed: ${err.message}`, true);
+      }
+    });
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    await renderLogs();
+  </script>
+</body>
+</html>

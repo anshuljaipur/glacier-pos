@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Counter POS — Sign in</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <h1>Counter POS</h1>
+      <p class="sub">Sign in to continue</p>
+      <div id="error" class="error-list" style="display:none;"></div>
+      <form id="login-form">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="primary" style="width:100%;" id="submit-btn">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { signIn, onAuthChange } from './js/auth/auth.js';
+
+    // Already signed in? Skip straight to the dashboard.
+    onAuthChange(({ user }) => {
+      if (user) window.location.href = 'dashboard.html';
+    });
+
+    const form = document.getElementById('login-form');
+    const errorBox = document.getElementById('error');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in…';
+      try {
+        await signIn(document.getElementById('email').value.trim(), document.getElementById('password').value);
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        errorBox.textContent = humanizeAuthError(err.code);
+        errorBox.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign in';
+      }
+    });
+
+    function humanizeAuthError(code) {
+      switch (code) {
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found':
+          return 'That email and password combination is not recognized.';
+        case 'auth/too-many-requests':
+          return 'Too many attempts. Wait a moment and try again.';
+        default:
+          return 'Sign-in failed. Check your connection and try again.';
+      }
+    }
+  </script>
+</body>
+</html>

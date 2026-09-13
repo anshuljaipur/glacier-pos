@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purchases — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <div class="toolbar">
+      <h1 style="margin:0;">Purchases</h1>
+      <div class="spacer"></div>
+      <button id="add-btn" class="primary">+ New Purchase</button>
+    </div>
+
+    <table>
+      <thead><tr><th>Date</th><th>Purchase ID</th><th>Supplier</th><th>Invoice Ref</th><th class="num">Total</th><th>Payment</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7">Loading…</td></tr></tbody>
+    </table>
+
+    <!-- New Purchase dialog -->
+    <dialog id="purchase-dialog" style="width:min(760px,94vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <h2>New Purchase</h2>
+      <div id="purchase-error" class="error-list" style="display:none;"></div>
+      <div class="form-grid">
+        <div class="field"><label for="p-supplier">Supplier *</label><select id="p-supplier"></select></div>
+        <div class="field"><label for="p-invoiceref">Supplier Invoice Ref</label><input id="p-invoiceref"></div>
+        <div class="field"><label for="p-payment-status">Payment Status</label>
+          <select id="p-payment-status"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+        </div>
+        <div class="field"><label for="p-amount-paid">Amount Paid</label><input id="p-amount-paid" type="number" min="0" value="0"></div>
+      </div>
+
+      <div class="field">
+        <label for="p-search">Add Item</label>
+        <input id="p-search" placeholder="Search product by name / barcode…">
+      </div>
+      <div id="p-search-results" class="scan-results" style="display:none;"></div>
+
+      <table style="margin-top:1rem;">
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Purchase Price</th><th class="num">GST%</th><th>Batch</th><th>Expiry</th><th class="num">Line Total</th><th></th></tr></thead>
+        <tbody id="p-item-rows"><tr><td colspan="8" style="color:var(--ink-muted);">No items yet.</td></tr></tbody>
+      </table>
+
+      <div class="totals-row grand" style="max-width:300px;margin-left:auto;"><span>Total</span><span class="mono" id="p-grand-total">₹0.00</span></div>
+
+      <div class="toolbar" style="margin-top:1rem;">
+        <button type="button" id="p-cancel-btn">Cancel</button>
+        <div class="spacer"></div>
+        <button type="button" id="p-save-btn" class="primary">Post Purchase</button>
+      </div>
+    </dialog>
+
+    <!-- Purchase detail / return dialog -->
+    <dialog id="detail-dialog" style="width:min(700px,94vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <h2 id="detail-title">Purchase</h2>
+      <table>
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Returned</th><th class="num">Return Qty</th></tr></thead>
+        <tbody id="detail-rows"></tbody>
+      </table>
+      <div class="field"><label for="return-reason">Return Reason</label><input id="return-reason"></div>
+      <div id="return-error" class="error-list" style="display:none;"></div>
+      <div class="toolbar">
+        <button type="button" id="detail-close-btn">Close</button>
+        <div class="spacer"></div>
+        <button type="button" id="return-submit-btn">Process Return</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script type="module">
+    import { requireAuth, can } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { db } from './js/firebase/init.js';
+    import { collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+    import { listSuppliers } from './js/suppliers/supplierService.js';
+    import { createPurchase, listRecentPurchases, getPurchase } from './js/purchases/purchaseService.js';
+    import { createPurchaseReturn, getReturnableQuantities } from './js/returns/purchaseReturnService.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'purchases.html' });
+    if (!can('purchase')) document.getElementById('add-btn').style.display = 'none';
+
+    let suppliers = [];
+    let catalog = [];
+    let purchaseItems = [];
+
+    async function loadSuppliers() {
+      suppliers = await listSuppliers();
+      document.getElementById('p-supplier').innerHTML = suppliers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    }
+    async function loadCatalog() {
+      const snap = await getDocs(query(collection(db, 'products'), where('status', '==', 'active')));
+      catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+
+    async function loadPurchases() {
+      const purchases = await listRecentPurchases();
+      const el = document.getElementById('rows');
+      const supplierName = (id) => suppliers.find((s) => s.id === id)?.name || id;
+      el.innerHTML = purchases.length ? purchases.map((p) => `
+        <tr>
+          <td class="mono" style="font-size:0.78rem;">${p.dateTime?.toDate ? p.dateTime.toDate().toLocaleString() : new Date(p.clientSeq).toLocaleString()}</td>
+          <td class="mono">${p.purchaseId}</td>
+          <td>${escapeHtml(supplierName(p.supplierId))}</td>
+          <td>${escapeHtml(p.invoiceRef || '—')}</td>
+          <td class="num price">₹${p.grandTotal.toFixed(2)}</td>
+          <td><span class="badge ${p.paymentStatus === 'paid' ? 'active' : 'low-stock'}">${p.paymentStatus}</span></td>
+          <td><button data-view="${p.purchaseId}">View / Return</button></td>
+        </tr>`).join('') : '<tr><td colspan="7" style="color:var(--ink-muted);">No purchases yet.</td></tr>';
+      window.__purchaseCache = purchases;
+    }
+
+    await loadSuppliers();
+    await loadCatalog();
+    await loadPurchases();
+
+    // ---- New Purchase dialog ----
+    document.getElementById('add-btn').addEventListener('click', () => {
+      purchaseItems = [];
+      document.getElementById('p-invoiceref').value = '';
+      document.getElementById('p-payment-status').value = 'unpaid';
+      document.getElementById('p-amount-paid').value = 0;
+      renderPurchaseItems();
+      document.getElementById('purchase-error').style.display = 'none';
+      document.getElementById('purchase-dialog').showModal();
+    });
+    document.getElementById('p-cancel-btn').addEventListener('click', () => document.getElementById('purchase-dialog').close());
+
+    document.getElementById('p-search').addEventListener('input', (e) => {
+      const term = e.target.value.trim().toLowerCase();
+      const el = document.getElementById('p-search-results');
+      if (term.length < 2) { el.style.display = 'none'; return; }
+      const matches = catalog.filter((p) => p.itemName.toLowerCase().includes(term) || (p.barcode || '').includes(term)).slice(0, 8);
+      if (!matches.length) { el.style.display = 'none'; return; }
+      el.style.display = 'block';
+      el.innerHTML = matches.map((p) => `<div class="row" data-add="${p.productId}"><span>${escapeHtml(p.itemName)}</span><span class="mono">₹${Number(p.purchasePrice || 0).toFixed(2)}</span></div>`).join('');
+    });
+    document.getElementById('p-search-results').addEventListener('click', (e) => {
+      const id = e.target.closest('[data-add]')?.dataset.add;
+      if (!id) return;
+      const product = catalog.find((p) => p.productId === id);
+      if (purchaseItems.some((i) => i.productId === id)) { purchaseItems.find((i) => i.productId === id).qty++; }
+      else purchaseItems.push({ productId: product.productId, itemName: product.itemName, hsn: product.hsn || '', qty: 1, purchasePrice: Number(product.purchasePrice) || 0, gstPercent: Number(product.gstPercent) || 0, batchNumber: '', expiryDate: '' });
+      document.getElementById('p-search').value = '';
+      document.getElementById('p-search-results').style.display = 'none';
+      renderPurchaseItems();
+    });
+
+    function renderPurchaseItems() {
+      const el = document.getElementById('p-item-rows');
+      if (!purchaseItems.length) { el.innerHTML = '<tr><td colspan="8" style="color:var(--ink-muted);">No items yet.</td></tr>'; updatePurchaseTotal(); return; }
+      el.innerHTML = purchaseItems.map((item, i) => {
+        const lineTotal = item.qty * item.purchasePrice * (1 + item.gstPercent / 100);
+        return `
+          <tr>
+            <td>${escapeHtml(item.itemName)}</td>
+            <td class="num"><input type="number" min="1" value="${item.qty}" data-pi-qty="${i}"></td>
+            <td class="num"><input type="number" min="0" value="${item.purchasePrice}" data-pi-price="${i}"></td>
+            <td class="num"><input type="number" min="0" value="${item.gstPercent}" data-pi-gst="${i}"></td>
+            <td><input value="${escapeAttr(item.batchNumber)}" data-pi-batch="${i}" style="width:90px;"></td>
+            <td><input type="date" value="${item.expiryDate}" data-pi-expiry="${i}"></td>
+            <td class="num mono">₹${lineTotal.toFixed(2)}</td>
+            <td><button type="button" data-pi-remove="${i}">✕</button></td>
+          </tr>`;
+      }).join('');
+      updatePurchaseTotal();
+    }
+    document.getElementById('p-item-rows').addEventListener('input', (e) => {
+      const d = e.target.dataset;
+      if (d.piQty !== undefined) purchaseItems[d.piQty].qty = Math.max(1, Number(e.target.value) || 1);
+      if (d.piPrice !== undefined) purchaseItems[d.piPrice].purchasePrice = Number(e.target.value) || 0;
+      if (d.piGst !== undefined) purchaseItems[d.piGst].gstPercent = Number(e.target.value) || 0;
+      if (d.piBatch !== undefined) purchaseItems[d.piBatch].batchNumber = e.target.value;
+      if (d.piExpiry !== undefined) purchaseItems[d.piExpiry].expiryDate = e.target.value;
+      renderPurchaseItems();
+    });
+    document.getElementById('p-item-rows').addEventListener('click', (e) => {
+      const idx = e.target.dataset.piRemove;
+      if (idx === undefined) return;
+      purchaseItems.splice(idx, 1);
+      renderPurchaseItems();
+    });
+
+    function updatePurchaseTotal() {
+      const total = purchaseItems.reduce((s, i) => s + i.qty * i.purchasePrice * (1 + i.gstPercent / 100), 0);
+      document.getElementById('p-grand-total').textContent = `₹${total.toFixed(2)}`;
+    }
+
+    document.getElementById('p-save-btn').addEventListener('click', async () => {
+      const errEl = document.getElementById('purchase-error');
+      errEl.style.display = 'none';
+      try {
+        await createPurchase(purchaseItems, {
+          supplierId: document.getElementById('p-supplier').value,
+          invoiceRef: document.getElementById('p-invoiceref').value.trim(),
+          paymentStatus: document.getElementById('p-payment-status').value,
+          amountPaid: Number(document.getElementById('p-amount-paid').value) || 0,
+          userId: user.uid
+        });
+        document.getElementById('purchase-dialog').close();
+        await loadPurchases();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    });
+
+    // ---- View / Return dialog ----
+    let currentPurchase = null;
+    document.getElementById('rows').addEventListener('click', async (e) => {
+      const id = e.target.dataset.view;
+      if (!id) return;
+      currentPurchase = await getPurchase(id);
+      document.getElementById('detail-title').textContent = `Purchase ${id}`;
+      const returnable = await getReturnableQuantities(currentPurchase);
+      document.getElementById('detail-rows').innerHTML = returnable.map((item, i) => `
+        <tr>
+          <td>${escapeHtml(item.itemNameSnapshot)}</td>
+          <td class="num">${item.qty}</td>
+          <td class="num">₹${item.purchasePrice.toFixed(2)}</td>
+          <td class="num">${item.alreadyReturned}</td>
+          <td class="num"><input type="number" min="0" max="${item.returnable}" value="0" data-return-qty="${i}" ${item.returnable === 0 ? 'disabled' : ''}></td>
+        </tr>`).join('');
+      window.__returnableCache = returnable;
+      document.getElementById('return-reason').value = '';
+      document.getElementById('return-error').style.display = 'none';
+      document.getElementById('return-submit-btn').style.display = can('stockAdjust') ? '' : 'none';
+      document.getElementById('detail-dialog').showModal();
+    });
+    document.getElementById('detail-close-btn').addEventListener('click', () => document.getElementById('detail-dialog').close());
+
+    document.getElementById('return-submit-btn').addEventListener('click', async () => {
+      const errEl = document.getElementById('return-error');
+      errEl.style.display = 'none';
+      try {
+        const inputs = document.querySelectorAll('[data-return-qty]');
+        const returnItems = window.__returnableCache.map((item, i) => ({
+          productId: item.productId, itemNameSnapshot: item.itemNameSnapshot,
+          qty: Number(inputs[i].value) || 0, purchasePrice: item.purchasePrice, gstPercent: item.gstPercent
+        }));
+        await createPurchaseReturn(currentPurchase, returnItems, { reason: document.getElementById('return-reason').value.trim(), userId: user.uid });
+        document.getElementById('detail-dialog').close();
+        await loadPurchases();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    });
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function escapeAttr(s) { return escapeHtml(s); }
+  </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Masters — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Masters</h1>
+    <div class="toolbar">
+      <button data-tab="categories" class="tab active">Categories</button>
+      <button data-tab="subCategories" class="tab">Sub Categories</button>
+      <button data-tab="brands" class="tab">Brands</button>
+      <button data-tab="units" class="tab">Units</button>
+    </div>
+
+    <div class="toolbar">
+      <input id="new-name" placeholder="New name…" style="max-width:260px;">
+      <select id="parent-category" style="display:none;max-width:220px;"></select>
+      <button id="add-btn" class="primary">+ Add</button>
+      <div id="add-error" style="color:var(--danger);font-size:0.85rem;"></div>
+    </div>
+
+    <table>
+      <thead><tr><th>Name</th><th id="parent-col-header" style="display:none;">Category</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="4">Loading…</td></tr></tbody>
+    </table>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { can } from './js/auth/auth.js';
+    import { categoryService, subCategoryService, brandService, unitService } from './js/masters/simpleMasterService.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'masters.html' });
+    if (!can('add')) document.getElementById('add-btn').style.display = 'none';
+
+    const SERVICES = { categories: categoryService, subCategories: subCategoryService, brands: brandService, units: unitService };
+    let activeTab = 'categories';
+    let categoriesCache = [];
+    let unsubscribe = null;
+
+    categoryService.subscribe((rows) => { categoriesCache = rows; if (activeTab === 'subCategories') renderParentDropdown(); });
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+      document.getElementById('parent-category').style.display = tab === 'subCategories' ? '' : 'none';
+      document.getElementById('parent-col-header').style.display = tab === 'subCategories' ? '' : 'none';
+      if (tab === 'subCategories') renderParentDropdown();
+      if (unsubscribe) unsubscribe();
+      document.getElementById('rows').innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
+      unsubscribe = SERVICES[tab].subscribe(renderRows);
+    }
+
+    function renderParentDropdown() {
+      const sel = document.getElementById('parent-category');
+      sel.innerHTML = categoriesCache.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    }
+
+    function renderRows(rows) {
+      const showParent = activeTab === 'subCategories';
+      const el = document.getElementById('rows');
+      if (!rows.length) { el.innerHTML = `<tr><td colspan="4" style="color:var(--ink-muted);">Nothing here yet.</td></tr>`; return; }
+      el.innerHTML = rows.map((r) => `
+        <tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td style="display:${showParent ? '' : 'none'};">${showParent ? escapeHtml(categoriesCache.find((c) => c.id === r.parentId)?.name || '—') : ''}</td>
+          <td><span class="badge ${r.active ? 'active' : 'inactive'}">${r.active ? 'Active' : 'Disabled'}</span></td>
+          <td><button data-toggle="${r.id}" data-active="${r.active}">${r.active ? 'Disable' : 'Re-enable'}</button></td>
+        </tr>`).join('');
+    }
+
+    document.querySelectorAll('.tab').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+    document.getElementById('add-btn').addEventListener('click', async () => {
+      const errEl = document.getElementById('add-error');
+      errEl.textContent = '';
+      const name = document.getElementById('new-name').value.trim();
+      try {
+        const parentId = activeTab === 'subCategories' ? document.getElementById('parent-category').value : undefined;
+        await SERVICES[activeTab].add(name, { userId: user.uid, parentId });
+        document.getElementById('new-name').value = '';
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
+    });
+
+    document.getElementById('rows').addEventListener('click', async (e) => {
+      const id = e.target.dataset.toggle;
+      if (!id) return;
+      await SERVICES[activeTab].setActive(id, e.target.dataset.active !== 'true', user.uid);
+    });
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    switchTab('categories');
+  </script>
+</body>
+</html>

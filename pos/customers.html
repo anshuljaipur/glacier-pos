@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customers — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <div class="toolbar">
+      <h1 style="margin:0;">Customers</h1>
+      <div class="spacer"></div>
+      <button id="add-btn" class="primary">+ Add Customer</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Mobile</th><th>Email</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="6">Loading…</td></tr></tbody>
+    </table>
+
+    <dialog id="dialog" style="width:min(560px,92vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <h2 id="dialog-title">Add Customer</h2>
+      <div id="dialog-error" class="error-list" style="display:none;"></div>
+      <form id="form" class="form-grid">
+        <div class="field"><label for="f-name">Name *</label><input id="f-name" required></div>
+        <div class="field"><label for="f-mobile">Mobile</label><input id="f-mobile"></div>
+        <div class="field"><label for="f-email">Email</label><input id="f-email" type="email"></div>
+        <div class="field"><label for="f-address">Address</label><input id="f-address"></div>
+        <div class="field"><label for="f-gstin">GSTIN</label><input id="f-gstin"></div>
+        <div class="field"><label for="f-credit">Credit Limit</label><input id="f-credit" type="number"></div>
+        <div class="field"><label for="f-notes">Notes</label><input id="f-notes"></div>
+        <div class="toolbar" style="grid-column:1/-1;margin-top:0.5rem;">
+          <button type="button" id="cancel-btn">Cancel</button>
+          <div class="spacer"></div>
+          <button type="submit" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { can } from './js/auth/auth.js';
+    import { createCustomer, updateCustomer, getCustomer, listCustomers, emptyCustomerDraft } from './js/customers/customerService.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'customers.html' });
+    if (!can('add')) document.getElementById('add-btn').style.display = 'none';
+
+    let editingId = null;
+    const dialog = document.getElementById('dialog');
+
+    async function load() {
+      const items = await listCustomers();
+      const el = document.getElementById('rows');
+      el.innerHTML = items.length ? items.map(renderRow).join('') :
+        '<tr><td colspan="6" style="color:var(--ink-muted);">No customers yet.</td></tr>';
+    }
+
+    function renderRow(c) {
+      return `
+        <tr>
+          <td class="mono">${c.id}</td>
+          <td>${escapeHtml(c.name)}</td>
+          <td class="mono">${escapeHtml(c.mobile || '—')}</td>
+          <td>${escapeHtml(c.email || '—')}</td>
+          <td><span class="badge ${c.status}">${c.status}</span></td>
+          <td><button data-edit="${c.id}">Edit</button></td>
+        </tr>`;
+    }
+
+    document.getElementById('rows').addEventListener('click', async (e) => {
+      const id = e.target.dataset.edit;
+      if (!id) return;
+      editingId = id;
+      const record = await getCustomer(id);
+      document.getElementById('dialog-title').textContent = 'Edit Customer';
+      fillForm(record);
+      dialog.showModal();
+    });
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      editingId = null;
+      document.getElementById('dialog-title').textContent = 'Add Customer';
+      fillForm(emptyCustomerDraft());
+      dialog.showModal();
+    });
+    document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
+
+    function fillForm(record) {
+      document.getElementById('f-name').value = record.name || '';
+      document.getElementById('f-mobile').value = record.mobile || '';
+      document.getElementById('f-email').value = record.email || '';
+      document.getElementById('f-address').value = record.address || '';
+      document.getElementById('f-gstin').value = record.gstin || '';
+      document.getElementById('f-credit').value = record.creditLimit || '';
+      document.getElementById('f-notes').value = record.notes || '';
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('dialog-error');
+      errEl.style.display = 'none';
+      const draft = {
+        name: document.getElementById('f-name').value.trim(),
+        mobile: document.getElementById('f-mobile').value.trim(),
+        email: document.getElementById('f-email').value.trim(),
+        address: document.getElementById('f-address').value.trim(),
+        gstin: document.getElementById('f-gstin').value.trim(),
+        creditLimit: document.getElementById('f-credit').value.trim(),
+        notes: document.getElementById('f-notes').value.trim(),
+        status: 'active'
+      };
+      try {
+        if (editingId) await updateCustomer(editingId, draft, { userId: user.uid });
+        else await createCustomer(draft, { userId: user.uid });
+        dialog.close();
+        await load();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    });
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    await load();
+  </script>
+</body>
+</html>

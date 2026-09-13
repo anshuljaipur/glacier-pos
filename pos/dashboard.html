@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Dashboard</h1>
+    <div class="form-grid" id="metric-grid" style="margin-top:1.5rem;">
+      <div class="field"><label>Active Products</label><div class="mono" id="m-active" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Inactive / Archived</label><div class="mono" id="m-inactive" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Low Stock</label><div class="mono" id="m-low" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Out of Stock</label><div class="mono" id="m-out" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Total Stock Quantity</label><div class="mono" id="m-totalstock" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Pending Sync</label><div class="mono" id="m-pending" style="font-size:1.4rem;">—</div></div>
+    </div>
+
+    <h2 style="margin-top:2rem;">Today</h2>
+    <div class="form-grid">
+      <div class="field"><label>Today's Sales</label><div class="mono" id="m-today-bills" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Today's Cash</label><div class="mono" id="m-today-cash" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Today's UPI</label><div class="mono" id="m-today-upi" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Today's Card</label><div class="mono" id="m-today-card" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Pending Invoice Numbers</label><div class="mono" id="m-today-pending-inv" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Today's Purchases</label><div class="mono" id="m-today-purchases" style="font-size:1.4rem;">—</div></div>
+      <div class="field"><label>Today's Purchase Value</label><div class="mono" id="m-today-purchase-value" style="font-size:1.4rem;">—</div></div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { db } from './js/firebase/init.js';
+    import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'dashboard.html' });
+
+    async function loadMetrics() {
+      const productsCol = collection(db, 'products');
+
+      const [activeSnap, inactiveSnap, archivedSnap] = await Promise.all([
+        getDocs(query(productsCol, where('status', '==', 'active'))),
+        getDocs(query(productsCol, where('status', '==', 'inactive'))),
+        getDocs(query(productsCol, where('status', '==', 'archived')))
+      ]);
+
+      let low = 0, out = 0, totalStock = 0, pendingSync = 0;
+      for (const d of activeSnap.docs) {
+        const p = d.data();
+        const stock = Number(p.currentStock || 0);
+        totalStock += stock;
+        if (stock === 0) out++;
+        else if (p.reorderLevel && stock <= Number(p.reorderLevel)) low++;
+        if (p.sync?.syncStatus === 'pending') pendingSync++;
+      }
+
+      document.getElementById('m-active').textContent = activeSnap.size;
+      document.getElementById('m-inactive').textContent = inactiveSnap.size + archivedSnap.size;
+      document.getElementById('m-low').textContent = low;
+      document.getElementById('m-out').textContent = out;
+      document.getElementById('m-totalstock').textContent = totalStock;
+      document.getElementById('m-pending').textContent = pendingSync;
+    }
+
+    loadMetrics().catch((err) => console.error('[dashboard] metric load failed', err));
+
+    async function loadTodaySales() {
+      const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+      const snap = await getDocs(query(collection(db, 'sales'), where('clientSeq', '>=', startOfDay.getTime())));
+      let cash = 0, upi = 0, card = 0, pendingInv = 0;
+      snap.forEach((d) => {
+        const s = d.data();
+        for (const p of s.paymentDetails || []) {
+          const amt = Number(p.amount) || 0;
+          if (p.method === 'CASH') cash += amt;
+          else if (p.method === 'UPI') upi += amt;
+          else if (p.method === 'CARD') card += amt;
+        }
+        if (s.invoiceNumberPending) pendingInv++;
+      });
+      document.getElementById('m-today-bills').textContent = snap.size;
+      document.getElementById('m-today-cash').textContent = `₹${cash.toFixed(2)}`;
+      document.getElementById('m-today-upi').textContent = `₹${upi.toFixed(2)}`;
+      document.getElementById('m-today-card').textContent = `₹${card.toFixed(2)}`;
+      document.getElementById('m-today-pending-inv').textContent = pendingInv;
+    }
+    loadTodaySales().catch((err) => console.error('[dashboard] today sales load failed', err));
+
+    async function loadTodayPurchases() {
+      const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+      const snap = await getDocs(query(collection(db, 'purchases'), where('clientSeq', '>=', startOfDay.getTime())));
+      let value = 0;
+      snap.forEach((d) => { value += Number(d.data().grandTotal) || 0; });
+      document.getElementById('m-today-purchases').textContent = snap.size;
+      document.getElementById('m-today-purchase-value').textContent = `₹${value.toFixed(2)}`;
+    }
+    loadTodayPurchases().catch((err) => console.error('[dashboard] today purchases load failed', err));
+  </script>
+</body>
+</html>

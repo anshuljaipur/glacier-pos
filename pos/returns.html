@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Returns — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Sales Returns</h1>
+    <p style="color:var(--ink-muted);font-size:0.85rem;">
+      Every return requires the original invoice — there is no path to
+      process a return without one (section 22).
+    </p>
+    <div class="toolbar">
+      <input id="invoice-search" placeholder="Invoice number…" style="max-width:220px;">
+      <button id="find-btn">Find Sale</button>
+    </div>
+    <div id="find-error" class="error-list" style="display:none;"></div>
+
+    <div id="return-form" style="display:none;">
+      <h2 id="return-sale-title"></h2>
+      <table>
+        <thead><tr><th>Item</th><th class="num">Sold</th><th class="num">Returned</th><th class="num">Return Qty</th></tr></thead>
+        <tbody id="return-item-rows"></tbody>
+      </table>
+      <div class="form-grid" style="max-width:520px;">
+        <div class="field"><label for="return-reason">Reason</label><input id="return-reason"></div>
+        <div class="field"><label for="refund-method">Refund Method</label>
+          <select id="refund-method"><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="CARD">Card</option><option value="OTHER">Other</option></select>
+        </div>
+      </div>
+      <div id="return-error" class="error-list" style="display:none;"></div>
+      <button id="submit-return-btn" class="primary">Process Return</button>
+    </div>
+
+    <h2 style="margin-top:2.5rem;">Recent Sales Returns</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Invoice #</th><th class="num">Total</th><th>Reason</th></tr></thead>
+      <tbody id="sales-return-rows"><tr><td colspan="4">Loading…</td></tr></tbody>
+    </table>
+
+    <h2 style="margin-top:2rem;">Recent Purchase Returns</h2>
+    <p style="color:var(--ink-muted);font-size:0.85rem;">Created from a purchase's "View / Return" action on the Purchases page.</p>
+    <table>
+      <thead><tr><th>Date</th><th>Purchase ID</th><th class="num">Total</th><th>Reason</th></tr></thead>
+      <tbody id="purchase-return-rows"><tr><td colspan="4">Loading…</td></tr></tbody>
+    </table>
+  </main>
+
+  <script type="module">
+    import { requireAuth, can } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { findSaleByInvoiceNumber } from './js/pos/saleService.js';
+    import { createSalesReturn, getReturnableQuantities, listRecentSalesReturns } from './js/returns/salesReturnService.js';
+    import { listRecentPurchaseReturns } from './js/returns/purchaseReturnService.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'returns.html' });
+    if (!can('refund')) { document.getElementById('find-btn').disabled = true; document.getElementById('invoice-search').disabled = true; }
+
+    let currentSale = null;
+    let returnable = [];
+
+    document.getElementById('find-btn').addEventListener('click', async () => {
+      const errEl = document.getElementById('find-error');
+      errEl.style.display = 'none';
+      document.getElementById('return-form').style.display = 'none';
+      const invoiceNumber = document.getElementById('invoice-search').value.trim();
+      if (!invoiceNumber) return;
+      const sale = await findSaleByInvoiceNumber(invoiceNumber);
+      if (!sale) { errEl.textContent = `No sale found with invoice number "${invoiceNumber}".`; errEl.style.display = 'block'; return; }
+      currentSale = sale;
+      returnable = await getReturnableQuantities(sale);
+      document.getElementById('return-sale-title').textContent = `Invoice ${sale.invoiceNumber} — ₹${sale.grandTotal.toFixed(2)}`;
+      document.getElementById('return-item-rows').innerHTML = returnable.map((item, i) => `
+        <tr>
+          <td>${escapeHtml(item.itemNameSnapshot)}</td>
+          <td class="num">${item.qty}</td>
+          <td class="num">${item.alreadyReturned}</td>
+          <td class="num"><input type="number" min="0" max="${item.returnable}" value="0" data-return-qty="${i}" ${item.returnable === 0 ? 'disabled' : ''}></td>
+        </tr>`).join('');
+      document.getElementById('return-form').style.display = 'block';
+    });
+
+    document.getElementById('submit-return-btn').addEventListener('click', async () => {
+      const errEl = document.getElementById('return-error');
+      errEl.style.display = 'none';
+      try {
+        const inputs = document.querySelectorAll('[data-return-qty]');
+        const returnItems = returnable.map((item, i) => ({
+          productId: item.productId, itemNameSnapshot: item.itemNameSnapshot,
+          qty: Number(inputs[i].value) || 0, rate: item.rate, gstPercent: item.gstPercent
+        }));
+        await createSalesReturn(currentSale, returnItems, {
+          reason: document.getElementById('return-reason').value.trim(),
+          refundMethod: document.getElementById('refund-method').value,
+          userId: user.uid
+        });
+        document.getElementById('return-form').style.display = 'none';
+        document.getElementById('invoice-search').value = '';
+        await loadReturnLists();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    });
+
+    async function loadReturnLists() {
+      const salesReturns = await listRecentSalesReturns();
+      document.getElementById('sales-return-rows').innerHTML = salesReturns.length ? salesReturns.map((r) => `
+        <tr>
+          <td class="mono" style="font-size:0.78rem;">${r.dateTime?.toDate ? r.dateTime.toDate().toLocaleString() : '—'}</td>
+          <td class="mono">${r.invoiceNumber || '—'}</td>
+          <td class="num price">₹${r.grandTotal.toFixed(2)}</td>
+          <td>${escapeHtml(r.reason || '—')}</td>
+        </tr>`).join('') : '<tr><td colspan="4" style="color:var(--ink-muted);">None yet.</td></tr>';
+
+      const purchaseReturns = await listRecentPurchaseReturns();
+      document.getElementById('purchase-return-rows').innerHTML = purchaseReturns.length ? purchaseReturns.map((r) => `
+        <tr>
+          <td class="mono" style="font-size:0.78rem;">${r.dateTime?.toDate ? r.dateTime.toDate().toLocaleString() : '—'}</td>
+          <td class="mono">${r.purchaseId}</td>
+          <td class="num price">₹${r.grandTotal.toFixed(2)}</td>
+          <td>${escapeHtml(r.reason || '—')}</td>
+        </tr>`).join('') : '<tr><td colspan="4" style="color:var(--ink-muted);">None yet.</td></tr>';
+    }
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    await loadReturnLists();
+  </script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Store Info</h1>
+    <p style="color:var(--ink-muted);font-size:0.85rem;">Shown on printed invoices (section 21).</p>
+    <form id="store-info-form" class="form-grid" style="max-width:520px;">
+      <div class="field"><label for="si-name">Business Name</label><input id="si-name"></div>
+      <div class="field"><label for="si-address">Address</label><input id="si-address"></div>
+      <div class="field"><label for="si-gstin">GSTIN</label><input id="si-gstin"></div>
+      <div class="field" style="align-self:end;"><button type="submit" class="primary">Save</button></div>
+    </form>
+
+    <h1 style="margin-top:2.5rem;">Inventory Fields</h1>
+    <p style="color:var(--ink-muted);font-size:0.85rem;max-width:640px;">
+      Fields added here immediately appear on the Product form, POS search,
+      the inventory grid and reports according to the visibility you set —
+      no code changes, no redeploy. Disabling a field keeps its historical
+      data; it is never deleted while any product still holds a value.
+    </p>
+
+    <table style="margin-top:1.5rem;">
+      <thead>
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Visible In</th><th>Editable From</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="field-rows"><tr><td colspan="7">Loading…</td></tr></tbody>
+    </table>
+
+    <h2 style="margin-top:2rem;">+ Add Field</h2>
+    <div id="form-errors" class="error-list" style="display:none;"></div>
+    <form id="add-field-form" class="form-grid" style="max-width:720px;">
+      <div class="field">
+        <label for="fieldName">Field Name</label>
+        <input id="fieldName" required placeholder="e.g. Flavour">
+      </div>
+      <div class="field">
+        <label for="fieldType">Field Type</label>
+        <select id="fieldType">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="currency">Currency</option>
+          <option value="date">Date</option>
+          <option value="datetime">Date/Time</option>
+          <option value="boolean">Boolean</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="multiselect">Multi-select</option>
+          <option value="url">URL</option>
+          <option value="imageUrl">Image URL</option>
+          <option value="percentage">Percentage</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="defaultValue">Default Value</label>
+        <input id="defaultValue" placeholder="optional">
+      </div>
+      <div class="field">
+        <label for="sortOrder">Sort Order</label>
+        <input id="sortOrder" type="number" placeholder="auto">
+      </div>
+      <div class="field"><label><input type="checkbox" id="required" style="width:auto;"> Required</label></div>
+      <div class="field"><label><input type="checkbox" id="visibleInPos" checked style="width:auto;"> Visible in POS</label></div>
+      <div class="field"><label><input type="checkbox" id="visibleInInventory" checked style="width:auto;"> Visible in Inventory</label></div>
+      <div class="field"><label><input type="checkbox" id="visibleInSearch" style="width:auto;"> Visible in Search</label></div>
+      <div class="field"><label><input type="checkbox" id="visibleInReports" style="width:auto;"> Visible in Reports</label></div>
+      <div class="field"><label><input type="checkbox" id="editableFromSheet" checked style="width:auto;"> Editable from Google Sheet</label></div>
+      <div class="field"><label><input type="checkbox" id="editableFromPos" checked style="width:auto;"> Editable from POS</label></div>
+      <div class="field" style="align-self:end;"><button type="submit" class="primary">Add Field</button></div>
+    </form>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { subscribeFieldDefs, addFieldDef, deactivateFieldDef, reactivateFieldDef } from './js/config/fieldSchema.js';
+    import { getStoreInfo, setStoreInfo } from './js/config/storeSettings.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'settings.html' });
+
+    const storeInfo = await getStoreInfo();
+    document.getElementById('si-name').value = storeInfo.name || '';
+    document.getElementById('si-address').value = storeInfo.address || '';
+    document.getElementById('si-gstin').value = storeInfo.gstin || '';
+    document.getElementById('store-info-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await setStoreInfo({
+        name: document.getElementById('si-name').value.trim(),
+        address: document.getElementById('si-address').value.trim(),
+        gstin: document.getElementById('si-gstin').value.trim()
+      }, user.uid);
+    });
+
+    const rowsEl = document.getElementById('field-rows');
+
+    subscribeFieldDefs((defs) => {
+      rowsEl.innerHTML = defs.length ? defs.map(renderRow).join('') :
+        '<tr><td colspan="7" style="color:var(--ink-muted);">No custom fields yet.</td></tr>';
+    });
+
+    function renderRow(f) {
+      const visible = [f.visibleInPos && 'POS', f.visibleInInventory && 'Inventory', f.visibleInSearch && 'Search', f.visibleInReports && 'Reports'].filter(Boolean).join(', ') || '—';
+      const editable = [f.editableFromSheet && 'Sheet', f.editableFromPos && 'POS'].filter(Boolean).join(', ') || '—';
+      return `
+        <tr>
+          <td>${escapeHtml(f.fieldName)} <span class="mono" style="color:var(--ink-muted);font-size:0.75rem;">(${f.id})</span></td>
+          <td>${f.fieldType}</td>
+          <td>${f.required ? 'Yes' : 'No'}</td>
+          <td style="font-size:0.8rem;">${visible}</td>
+          <td style="font-size:0.8rem;">${editable}</td>
+          <td><span class="badge ${f.active ? 'active' : 'inactive'}">${f.active ? 'Active' : 'Disabled'}</span></td>
+          <td><button data-toggle="${f.id}" data-active="${f.active}">${f.active ? 'Disable' : 'Re-enable'}</button></td>
+        </tr>`;
+    }
+
+    rowsEl.addEventListener('click', async (e) => {
+      const id = e.target.dataset.toggle;
+      if (!id) return;
+      const isActive = e.target.dataset.active === 'true';
+      if (isActive) await deactivateFieldDef(id, user.uid);
+      else await reactivateFieldDef(id, user.uid);
+    });
+
+    document.getElementById('add-field-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('form-errors');
+      errBox.style.display = 'none';
+      try {
+        await addFieldDef({
+          fieldName: document.getElementById('fieldName').value.trim(),
+          fieldType: document.getElementById('fieldType').value,
+          defaultValue: document.getElementById('defaultValue').value || null,
+          sortOrder: document.getElementById('sortOrder').value ? Number(document.getElementById('sortOrder').value) : undefined,
+          required: document.getElementById('required').checked,
+          visibleInPos: document.getElementById('visibleInPos').checked,
+          visibleInInventory: document.getElementById('visibleInInventory').checked,
+          visibleInSearch: document.getElementById('visibleInSearch').checked,
+          visibleInReports: document.getElementById('visibleInReports').checked,
+          editableFromSheet: document.getElementById('editableFromSheet').checked,
+          editableFromPos: document.getElementById('editableFromPos').checked
+        }, user.uid);
+        e.target.reset();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+      }
+    });
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  </script>
+</body>
+</html>

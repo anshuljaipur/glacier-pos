@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Sales</h1>
+    <table>
+      <thead><tr><th>Date</th><th>Invoice #</th><th>Customer</th><th class="num">Items</th><th class="num">Total</th><th>Payment</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7">Loading…</td></tr></tbody>
+    </table>
+
+    <dialog id="invoice-dialog" style="width:min(420px,92vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <div id="invoice-content"></div>
+      <div class="toolbar" style="margin-top:1rem;">
+        <button type="button" id="invoice-close-btn">Close</button>
+        <div class="spacer"></div>
+        <button type="button" id="invoice-print-btn" class="primary">Print</button>
+      </div>
+    </dialog>
+    <div id="invoice-print-area"></div>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { listRecentSales } from './js/pos/saleService.js';
+    import { getCustomer } from './js/customers/customerService.js';
+    import { getStoreInfo } from './js/config/storeSettings.js';
+
+    await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'sales.html' });
+
+    const storeInfo = await getStoreInfo();
+    const customerCache = new Map();
+
+    async function customerName(customerId) {
+      if (!customerId) return 'Walk-in';
+      if (customerCache.has(customerId)) return customerCache.get(customerId);
+      const c = await getCustomer(customerId);
+      const name = c?.name || customerId;
+      customerCache.set(customerId, name);
+      return name;
+    }
+
+    async function load() {
+      const sales = await listRecentSales();
+      const el = document.getElementById('rows');
+      if (!sales.length) { el.innerHTML = '<tr><td colspan="7" style="color:var(--ink-muted);">No sales yet.</td></tr>'; return; }
+      const rowsHtml = await Promise.all(sales.map(async (s) => `
+        <tr>
+          <td class="mono" style="font-size:0.78rem;">${s.dateTime?.toDate ? s.dateTime.toDate().toLocaleString() : new Date(s.clientSeq).toLocaleString()}</td>
+          <td class="mono">${s.invoiceNumber || '(pending)'}</td>
+          <td>${escapeHtml(await customerName(s.customerId))}</td>
+          <td class="num">${s.items.length}</td>
+          <td class="num price">₹${s.grandTotal.toFixed(2)}</td>
+          <td>${s.paymentDetails.map((p) => p.method).join(', ')}</td>
+          <td><button data-reprint="${s.id}">Reprint</button></td>
+        </tr>`));
+      el.innerHTML = rowsHtml.join('');
+      window.__salesCache = sales;
+    }
+
+    document.getElementById('rows').addEventListener('click', async (e) => {
+      const id = e.target.dataset.reprint;
+      if (!id) return;
+      const sale = window.__salesCache.find((s) => s.id === id);
+      const custName = await customerName(sale.customerId);
+      const html = `
+        <div class="invoice-box">
+          <h2>${escapeHtml(storeInfo.name || 'Counter POS')}</h2>
+          <p class="center">${escapeHtml(storeInfo.address || '')}${storeInfo.gstin ? ` · GSTIN ${escapeHtml(storeInfo.gstin)}` : ''}</p>
+          <p class="center mono">Invoice: ${sale.invoiceNumber || '(pending)'}<br>${sale.dateTime?.toDate ? sale.dateTime.toDate().toLocaleString() : ''}<br>Customer: ${escapeHtml(custName)}</p>
+          <table>
+            <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+            <tbody>${sale.items.map((i) => `<tr><td>${escapeHtml(i.itemNameSnapshot)}</td><td>${i.qty}</td><td>${i.rate.toFixed(2)}</td><td>${i.lineTotal.toFixed(2)}</td></tr>`).join('')}</tbody>
+          </table>
+          <div class="totals-row"><span>Subtotal</span><span>₹${sale.subtotal.toFixed(2)}</span></div>
+          <div class="totals-row"><span>Discount</span><span>₹${sale.billDiscount.toFixed(2)}</span></div>
+          <div class="totals-row"><span>GST</span><span>₹${sale.tax.toFixed(2)}</span></div>
+          <div class="totals-row grand"><span>Total</span><span>₹${sale.grandTotal.toFixed(2)}</span></div>
+        </div>`;
+      document.getElementById('invoice-content').innerHTML = html;
+      document.getElementById('invoice-print-area').innerHTML = html;
+      document.getElementById('invoice-dialog').showModal();
+    });
+    document.getElementById('invoice-close-btn').addEventListener('click', () => document.getElementById('invoice-dialog').close());
+    document.getElementById('invoice-print-btn').addEventListener('click', () => window.print());
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    await load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Products — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <div class="toolbar">
+      <h1 style="margin:0;">Products</h1>
+      <div class="spacer"></div>
+      <input id="search-box" placeholder="Search by barcode or name…" style="max-width:260px;">
+      <button id="add-btn" class="primary">+ Add Product</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Product ID</th><th>Item Name</th><th>Barcode</th>
+          <th class="num">MRP</th><th class="num">Selling Price</th>
+          <th class="num">Stock</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="product-rows"><tr><td colspan="8">Loading…</td></tr></tbody>
+    </table>
+    <div class="toolbar" style="margin-top:1rem;">
+      <button id="load-more-btn">Load more</button>
+    </div>
+
+    <!-- Add/Edit dialog -->
+    <dialog id="product-dialog" style="width:min(720px,92vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <h2 id="dialog-title">Add Product</h2>
+      <div id="dialog-errors" class="error-list" style="display:none;"></div>
+      <form id="product-form">
+        <div class="form-grid" id="builtin-fields"></div>
+        <h3 style="margin-top:1rem;">Custom Fields</h3>
+        <div class="form-grid" id="custom-fields"></div>
+        <div class="field">
+          <label for="opening-stock" id="opening-stock-label">Opening Stock</label>
+          <input type="number" id="opening-stock" min="0" step="1">
+        </div>
+        <div class="toolbar" style="margin-top:1rem;">
+          <button type="button" id="cancel-btn">Cancel</button>
+          <div class="spacer"></div>
+          <button type="submit" class="primary" id="save-btn">Save Product</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { can } from './js/auth/auth.js';
+    import {
+      createProduct, updateProduct, getProduct, findByBarcode,
+      listProducts, setProductStatus, ValidationError
+    } from './js/products/productService.js';
+    import { emptyProductDraft, BUILTIN_FIELDS } from './js/products/productSchema.js';
+    import { subscribeFieldDefs } from './js/config/fieldSchema.js';
+    import { categoryService, subCategoryService, brandService, unitService } from './js/masters/simpleMasterService.js';
+    import { listSuppliers } from './js/suppliers/supplierService.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'products.html' });
+    if (!can('add')) document.getElementById('add-btn').style.display = 'none';
+
+    let fieldDefs = [];
+    subscribeFieldDefs((defs) => { fieldDefs = defs; });
+
+    // Reference-master caches, kept live so a category/brand added on the
+    // Masters page (or by the Sheet sync) shows up in these dropdowns
+    // without a reload.
+    const masters = { category: [], subCategory: [], brand: [], unit: [], supplierId: [] };
+    categoryService.subscribe((rows) => { masters.category = rows.filter((r) => r.active); });
+    subCategoryService.subscribe((rows) => { masters.subCategory = rows.filter((r) => r.active); });
+    brandService.subscribe((rows) => { masters.brand = rows.filter((r) => r.active); });
+    unitService.subscribe((rows) => { masters.unit = rows.filter((r) => r.active); });
+    listSuppliers().then((rows) => { masters.supplierId = rows; });
+
+    let cursor = null;
+    let editingProductId = null;
+
+    const rowsEl = document.getElementById('product-rows');
+    const dialog = document.getElementById('product-dialog');
+    const dialogErrors = document.getElementById('dialog-errors');
+
+    async function loadPage({ append = false } = {}) {
+      const { products, nextCursor } = await listProducts({ cursor: append ? cursor : null });
+      cursor = nextCursor;
+      document.getElementById('load-more-btn').style.display = cursor ? '' : 'none';
+      const html = products.map(renderRow).join('');
+      rowsEl.innerHTML = (append ? rowsEl.innerHTML : '') + html;
+      if (!append && products.length === 0) {
+        rowsEl.innerHTML = '<tr><td colspan="8" style="color:var(--ink-muted);">No products yet — add your first one.</td></tr>';
+      }
+    }
+
+    function stockBadge(p) {
+      const stock = Number(p.currentStock || 0);
+      if (stock === 0) return '<span class="badge out-of-stock">Out of stock</span>';
+      if (p.reorderLevel && stock <= Number(p.reorderLevel)) return '<span class="badge low-stock">Low</span>';
+      return '';
+    }
+
+    function renderRow(p) {
+      return `
+        <tr>
+          <td class="mono">${p.productId}</td>
+          <td>${escapeHtml(p.itemName)}</td>
+          <td class="mono barcode">${escapeHtml(p.barcode || '—')}</td>
+          <td class="num price">${formatMoney(p.mrp)}</td>
+          <td class="num price">${formatMoney(p.sellingPrice)}</td>
+          <td class="num">${p.currentStock ?? 0} ${stockBadge(p)}</td>
+          <td><span class="badge ${p.status}">${p.status}</span></td>
+          <td>${can('edit') ? `<button data-edit="${p.productId}">Edit</button>` : ''}</td>
+        </tr>`;
+    }
+
+    rowsEl.addEventListener('click', async (e) => {
+      const id = e.target.dataset.edit;
+      if (id) openDialog(id);
+    });
+
+    document.getElementById('load-more-btn').addEventListener('click', () => loadPage({ append: true }));
+    document.getElementById('add-btn').addEventListener('click', () => openDialog(null));
+    document.getElementById('cancel-btn').addEventListener('click', () => dialog.close());
+
+    document.getElementById('search-box').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      const term = e.target.value.trim();
+      if (!term) return loadPage();
+      const byBarcode = await findByBarcode(term);
+      if (byBarcode.length) {
+        rowsEl.innerHTML = byBarcode.map(renderRow).join('');
+        document.getElementById('load-more-btn').style.display = 'none';
+      } else {
+        // Fall back to a simple client-side name filter over the loaded page
+        // (Phase 2 adds a proper search index for large catalogs — section 31/47).
+        const { products } = await listProducts({ cursor: null, pageSize: 200 });
+        const matches = products.filter((p) => p.itemName.toLowerCase().includes(term.toLowerCase()));
+        rowsEl.innerHTML = matches.length ? matches.map(renderRow).join('') : '<tr><td colspan="8">No matches.</td></tr>';
+        document.getElementById('load-more-btn').style.display = 'none';
+      }
+    });
+
+    async function openDialog(productId) {
+      editingProductId = productId;
+      dialogErrors.style.display = 'none';
+      document.getElementById('dialog-title').textContent = productId ? 'Edit Product' : 'Add Product';
+      document.getElementById('opening-stock-label').style.display = productId ? 'none' : '';
+      document.getElementById('opening-stock').closest('.field').style.display = productId ? 'none' : '';
+
+      const draft = productId ? await getProduct(productId) : emptyProductDraft();
+      renderBuiltinFields(draft);
+      renderCustomFields(draft);
+      dialog.showModal();
+    }
+
+    const REFERENCE_FIELDS = { brand: 'brand', category: 'category', subCategory: 'subCategory', unit: 'unit', supplierId: 'supplierId' };
+
+    function renderBuiltinFields(draft) {
+      const container = document.getElementById('builtin-fields');
+      const editable = BUILTIN_FIELDS.filter((f) => !f.systemControlled);
+      container.innerHTML = editable.map((f) => {
+        if (REFERENCE_FIELDS[f.key]) {
+          const options = masters[f.key].map((m) => `<option value="${m.id}" ${draft[f.key] === m.id ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('');
+          return `
+            <div class="field">
+              <label for="bf-${f.key}">${f.label}</label>
+              <div style="display:flex;gap:0.4em;">
+                <select id="bf-${f.key}" data-key="${f.key}" style="flex:1;"><option value="">—</option>${options}</select>
+                ${f.key !== 'unit' && f.key !== 'supplierId' ? `<button type="button" data-quick-add="${f.key}" title="Add new ${f.label.toLowerCase()}">+</button>` : ''}
+              </div>
+            </div>`;
+        }
+        return `
+          <div class="field">
+            <label for="bf-${f.key}">${f.label}${f.required ? ' *' : ''}</label>
+            <input id="bf-${f.key}" data-key="${f.key}" type="${inputType(f.type)}"
+                   value="${escapeAttr(displayValue(draft[f.key]))}">
+          </div>`;
+      }).join('');
+      if (draft.productId) {
+        container.insertAdjacentHTML('afterbegin', `
+          <div class="field"><label>Product ID</label><input class="mono" value="${draft.productId}" disabled></div>
+          <div class="field"><label>Status</label>
+            <select id="bf-status" data-key="status">
+              <option value="active" ${draft.status === 'active' ? 'selected' : ''}>Active</option>
+              <option value="inactive" ${draft.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+              <option value="archived" ${draft.status === 'archived' ? 'selected' : ''}>Archived</option>
+            </select>
+          </div>
+        `);
+      }
+    }
+
+    document.getElementById('builtin-fields').addEventListener('click', async (e) => {
+      const key = e.target.dataset.quickAdd;
+      if (!key) return;
+      const name = prompt(`New ${key === 'category' ? 'Category' : key === 'subCategory' ? 'Sub Category' : 'Brand'} name:`);
+      if (!name || !name.trim()) return;
+      const service = { category: categoryService, subCategory: subCategoryService, brand: brandService }[key];
+      const parentId = key === 'subCategory' ? document.getElementById('bf-category')?.value : undefined;
+      const newId = await service.add(name, { userId: user.uid, parentId });
+      // The live subscription updates `masters[key]` asynchronously; select
+      // it once the option exists so the admin doesn't have to reselect.
+      const trySelect = () => {
+        const select = document.getElementById(`bf-${key}`);
+        if (select && masters[key].some((m) => m.id === newId)) {
+          select.innerHTML = `<option value="">—</option>` + masters[key].map((m) => `<option value="${m.id}" ${m.id === newId ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('');
+        } else {
+          setTimeout(trySelect, 150);
+        }
+      };
+      trySelect();
+    });
+
+    function renderCustomFields(draft) {
+      const container = document.getElementById('custom-fields');
+      const active = fieldDefs.filter((f) => f.active && f.editableFromPos);
+      if (!active.length) {
+        container.innerHTML = '<p style="color:var(--ink-muted);font-size:0.85rem;">No custom fields defined yet — add some in Settings → Inventory Fields.</p>';
+        return;
+      }
+      container.innerHTML = active.map((f) => `
+        <div class="field">
+          <label for="cf-${f.id}">${f.fieldName}${f.required ? ' *' : ''}</label>
+          <input id="cf-${f.id}" data-custom-key="${f.id}" type="${inputType(f.fieldType)}"
+                 value="${escapeAttr(displayValue(draft.customFields?.[f.id]))}">
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('product-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById('save-btn');
+      saveBtn.disabled = true;
+      dialogErrors.style.display = 'none';
+      try {
+        const changes = {};
+        for (const input of document.querySelectorAll('#builtin-fields [data-key]')) {
+          changes[input.dataset.key] = input.value;
+        }
+        const status = document.getElementById('bf-status');
+        if (status) changes.status = status.value;
+
+        const customFields = {};
+        for (const input of document.querySelectorAll('#custom-fields [data-custom-key]')) {
+          customFields[input.dataset.customKey] = input.value;
+        }
+        changes.customFields = customFields;
+
+        if (editingProductId) {
+          await updateProduct(editingProductId, changes, { userId: user.uid });
+        } else {
+          const openingStock = Number(document.getElementById('opening-stock').value || 0);
+          await createProduct(changes, { userId: user.uid, openingStock });
+        }
+        dialog.close();
+        await loadPage();
+      } catch (err) {
+        const messages = err instanceof ValidationError ? err.errors : [err.message];
+        dialogErrors.innerHTML = messages.join('<br>');
+        dialogErrors.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    function inputType(type) {
+      switch (type) {
+        case 'number': case 'currency': case 'percentage': return 'number';
+        case 'date': return 'date';
+        case 'datetime': return 'datetime-local';
+        case 'url': case 'imageUrl': return 'url';
+        default: return 'text';
+      }
+    }
+    function displayValue(v) { return v === undefined || v === null ? '' : v; }
+    function formatMoney(v) { return v === undefined || v === null || v === '' ? '—' : `₹${Number(v).toFixed(2)}`; }
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+    await loadPage();
+  </script>
+</body>
+</html>

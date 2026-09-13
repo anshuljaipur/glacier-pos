@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Reports</h1>
+    <p style="color:var(--ink-muted);font-size:0.85rem;max-width:640px;">
+      Covers Sales, Payment Mode, Product/Category/Brand Sales, Discount,
+      Customer, Purchase, Supplier, Sales/Purchase Returns, Stock
+      Valuation, Low Stock, Out of Stock, Expiry, GST Summary by HSN, and
+      an approximate Profit/Margin. Not yet covered: Expense Report and
+      Cash Book (no expense-entry feature exists yet), and a filed-return-
+      grade GST report (this one is a bookkeeping summary, not a filing
+      tool) — see README.md section 10.
+    </p>
+
+    <div class="toolbar">
+      <select id="report-type">
+        <optgroup label="Sales">
+          <option value="salesSummary">Sales Summary</option>
+          <option value="paymentMode">Payment Mode</option>
+          <option value="productSales">Product Sales</option>
+          <option value="categorySales">Category Sales</option>
+          <option value="brandSales">Brand Sales</option>
+          <option value="discount">Discount Report</option>
+          <option value="customer">Customer Report</option>
+          <option value="profitMargin">Profit / Margin (approx.)</option>
+        </optgroup>
+        <optgroup label="Purchases">
+          <option value="purchaseSummary">Purchase Summary</option>
+          <option value="supplier">Supplier Report</option>
+        </optgroup>
+        <optgroup label="Returns">
+          <option value="salesReturns">Sales Return Report</option>
+          <option value="purchaseReturns">Purchase Return Report</option>
+        </optgroup>
+        <optgroup label="Stock">
+          <option value="stockValuation">Stock Valuation</option>
+          <option value="lowStock">Low Stock</option>
+          <option value="outOfStock">Out of Stock</option>
+          <option value="expired">Expired</option>
+          <option value="expiring30">Expiring in 30 days</option>
+        </optgroup>
+        <optgroup label="Tax">
+          <option value="gstSummary">GST Summary (by HSN)</option>
+        </optgroup>
+      </select>
+      <label style="margin:0;">From <input id="date-from" type="date"></label>
+      <label style="margin:0;">To <input id="date-to" type="date"></label>
+      <button id="run-btn" class="primary">Run Report</button>
+      <button id="export-btn" style="display:none;">Export CSV</button>
+    </div>
+
+    <div id="report-error" class="error-list" style="display:none;"></div>
+    <table id="report-table" style="margin-top:1rem;">
+      <thead id="report-thead"></thead>
+      <tbody id="report-tbody"><tr><td style="color:var(--ink-muted);">Choose a report and date range, then Run Report.</td></tr></tbody>
+    </table>
+  </main>
+
+  <script type="module">
+    import { requireAuth, can } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import * as R from './js/reports/reportService.js';
+    import { listCustomers } from './js/customers/customerService.js';
+    import { listSuppliers } from './js/suppliers/supplierService.js';
+    import { categoryService, brandService } from './js/masters/simpleMasterService.js';
+    import { getRecentSyncLogs } from './js/sync/syncService.js';
+
+    await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'reports.html' });
+    if (!can('reports')) {
+      document.getElementById('page-content').innerHTML = '<div class="error-list">Reports access isn\u2019t enabled for your role.</div>';
+    }
+
+    // Default range: last 30 days.
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000);
+    document.getElementById('date-from').value = thirtyDaysAgo.toISOString().slice(0, 10);
+    document.getElementById('date-to').value = today.toISOString().slice(0, 10);
+
+    let currentRows = [];
+
+    document.getElementById('run-btn').addEventListener('click', run);
+    document.getElementById('export-btn').addEventListener('click', () => {
+      const type = document.getElementById('report-type').value;
+      R.downloadCsv(`${type}-${document.getElementById('date-from').value}-to-${document.getElementById('date-to').value}.csv`, currentRows);
+    });
+
+    async function run() {
+      const errEl = document.getElementById('report-error');
+      errEl.style.display = 'none';
+      document.getElementById('report-tbody').innerHTML = '<tr><td style="color:var(--ink-muted);">Running…</td></tr>';
+      document.getElementById('export-btn').style.display = 'none';
+      try {
+        const type = document.getElementById('report-type').value;
+        const fromMs = new Date(document.getElementById('date-from').value + 'T00:00:00').getTime();
+        const toMs = new Date(document.getElementById('date-to').value + 'T23:59:59').getTime();
+        currentRows = await computeReport(type, fromMs, toMs);
+        renderTable(currentRows);
+        document.getElementById('export-btn').style.display = currentRows.length ? '' : 'none';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function computeReport(type, fromMs, toMs) {
+      switch (type) {
+        case 'salesSummary': return R.computeSalesSummary(await R.getSalesInRange(fromMs, toMs));
+        case 'paymentMode': return R.computePaymentModeBreakdown(await R.getSalesInRange(fromMs, toMs));
+        case 'productSales': return R.computeProductSales(await R.getSalesInRange(fromMs, toMs));
+        case 'categorySales': {
+          const [sales, products, categories] = await Promise.all([R.getSalesInRange(fromMs, toMs), R.getAllActiveProducts(), listAll(categoryService)]);
+          return R.computeCategorySales(sales, products, categories);
+        }
+        case 'brandSales': {
+          const [sales, products, brands] = await Promise.all([R.getSalesInRange(fromMs, toMs), R.getAllActiveProducts(), listAll(brandService)]);
+          return R.computeBrandSales(sales, products, brands);
+        }
+        case 'discount': return R.computeDiscountReport(await R.getSalesInRange(fromMs, toMs));
+        case 'customer': {
+          const [sales, customers] = await Promise.all([R.getSalesInRange(fromMs, toMs), listCustomers({ status: 'active' })]);
+          return R.computeCustomerReport(sales, customers);
+        }
+        case 'profitMargin': {
+          const [sales, products] = await Promise.all([R.getSalesInRange(fromMs, toMs), R.getAllActiveProducts()]);
+          return R.computeProfitMargin(sales, products);
+        }
+        case 'purchaseSummary': {
+          const purchases = await R.getPurchasesInRange(fromMs, toMs);
+          const total = purchases.reduce((s, p) => s + p.grandTotal, 0);
+          return [{ 'Purchases': purchases.length, 'Total': total.toFixed(2) }];
+        }
+        case 'supplier': {
+          const [purchases, suppliers] = await Promise.all([R.getPurchasesInRange(fromMs, toMs), listSuppliers()]);
+          return R.computeSupplierReport(purchases, suppliers);
+        }
+        case 'salesReturns': return R.computeSalesReturnReport(await R.getSalesReturnsInRange(fromMs, toMs));
+        case 'purchaseReturns': return R.computePurchaseReturnReport(await R.getPurchaseReturnsInRange(fromMs, toMs));
+        case 'stockValuation': return R.computeStockValuation(await R.getAllActiveProducts());
+        case 'lowStock': return R.computeLowStock(await R.getAllActiveProducts());
+        case 'outOfStock': return R.computeOutOfStock(await R.getAllActiveProducts());
+        case 'expired': return R.computeExpiry(await R.getAllActiveProducts(), null);
+        case 'expiring30': return R.computeExpiry(await R.getAllActiveProducts(), 30);
+        case 'gstSummary': {
+          const [sales, purchases] = await Promise.all([R.getSalesInRange(fromMs, toMs), R.getPurchasesInRange(fromMs, toMs)]);
+          return R.computeGstSummary(sales, purchases);
+        }
+        default: return [];
+      }
+    }
+
+    async function listAll(service) {
+      return new Promise((resolve) => {
+        const unsub = service.subscribe((rows) => { unsub(); resolve(rows); });
+      });
+    }
+
+    function renderTable(rows) {
+      const thead = document.getElementById('report-thead');
+      const tbody = document.getElementById('report-tbody');
+      if (!rows.length) {
+        thead.innerHTML = '';
+        tbody.innerHTML = '<tr><td style="color:var(--ink-muted);">No data for this range.</td></tr>';
+        return;
+      }
+      const headers = Object.keys(rows[0]);
+      thead.innerHTML = `<tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
+      tbody.innerHTML = rows.map((r) => `<tr>${headers.map((h) => `<td class="${typeof r[h] === 'number' ? 'num mono' : ''}">${escapeHtml(r[h])}</td>`).join('')}</tr>`).join('');
+    }
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  </script>
+</body>
+</html>

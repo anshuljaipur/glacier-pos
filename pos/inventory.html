@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <h1>Inventory</h1>
+
+    <div class="toolbar">
+      <input id="search" placeholder="Search item / barcode…" style="max-width:220px;">
+      <select id="filter-status"><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option><option value="all">All</option></select>
+      <select id="filter-stock">
+        <option value="all">All Stock</option>
+        <option value="low">Low Stock</option>
+        <option value="out">Out of Stock</option>
+      </select>
+      <select id="filter-expiry">
+        <option value="all">All Expiry</option>
+        <option value="expired">Expired</option>
+        <option value="7">Expiring in 7 days</option>
+        <option value="15">Expiring in 15 days</option>
+        <option value="30">Expiring in 30 days</option>
+        <option value="60">Expiring in 60 days</option>
+      </select>
+      <select id="filter-category"><option value="">All Categories</option></select>
+      <select id="filter-brand"><option value="">All Brands</option></select>
+      <select id="sort-by">
+        <option value="itemName">Sort: Name</option>
+        <option value="currentStock">Sort: Stock</option>
+        <option value="sellingPrice">Sort: Price</option>
+        <option value="mrp">Sort: MRP</option>
+        <option value="expiryDate">Sort: Expiry</option>
+        <option value="updatedAt">Sort: Updated</option>
+      </select>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Category</th><th>Brand</th><th class="num">Stock</th><th class="num">Reorder</th><th>Expiry</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="8">Loading…</td></tr></tbody>
+    </table>
+    <p style="color:var(--ink-muted);font-size:0.78rem;">
+      Showing up to 500 active-scope products, filtered/sorted client-side.
+      A proper indexed search for larger catalogs is a Phase 9 (Performance)
+      item — see README.md section 10.
+    </p>
+
+    <dialog id="ledger-dialog" style="width:min(640px,92vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <h2 id="ledger-title">Stock Ledger</h2>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th class="num">Change</th><th class="num">Before</th><th class="num">After</th><th>Source</th><th>Remarks</th></tr></thead>
+        <tbody id="ledger-rows"></tbody>
+      </table>
+
+      <h3 style="margin-top:1.5rem;">New Adjustment</h3>
+      <div id="adj-error" class="error-list" style="display:none;"></div>
+      <form id="adj-form" class="form-grid">
+        <div class="field">
+          <label for="adj-type">Type</label>
+          <select id="adj-type">
+            <option value="MANUAL_ADJUSTMENT">Manual Adjustment</option>
+            <option value="DAMAGE">Damage</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="LOST">Lost</option>
+            <option value="STOCK_TRANSFER">Stock Transfer</option>
+            <option value="FREE_SAMPLE">Free Sample</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div class="field"><label for="adj-qty">Quantity Change (+/-)</label><input id="adj-qty" type="number" required></div>
+        <div class="field" style="grid-column:1/-1;"><label for="adj-remarks">Remarks</label><input id="adj-remarks"></div>
+        <div class="toolbar" style="grid-column:1/-1;">
+          <button type="button" id="ledger-close-btn">Close</button>
+          <div class="spacer"></div>
+          <button type="submit" class="primary">Apply Adjustment</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { can } from './js/auth/auth.js';
+    import { listProducts } from './js/products/productService.js';
+    import { applyStockChange, getLedgerForProduct } from './js/inventory/stockLedger.js';
+    import { categoryService, brandService } from './js/masters/simpleMasterService.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'inventory.html' });
+    if (!can('stockAdjust')) document.getElementById('adj-form').style.display = 'none';
+
+    let categories = [], brands = [];
+    categoryService.subscribe((rows) => {
+      categories = rows;
+      document.getElementById('filter-category').innerHTML = '<option value="">All Categories</option>' + rows.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    });
+    brandService.subscribe((rows) => {
+      brands = rows;
+      document.getElementById('filter-brand').innerHTML = '<option value="">All Brands</option>' + rows.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+    });
+
+    let allProducts = [];
+    let currentProductId = null;
+
+    async function loadAll() {
+      document.getElementById('rows').innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
+      const status = document.getElementById('filter-status').value;
+      const statuses = status === 'all' ? ['active', 'inactive', 'archived'] : [status];
+      const results = [];
+      for (const s of statuses) {
+        let cursor = null;
+        for (let page = 0; page < 5; page++) { // cap at 500 (5 x 100) per the note above
+          const { products, nextCursor } = await listProducts({ status: s, cursor, pageSize: 100 });
+          results.push(...products);
+          if (!nextCursor) break;
+          cursor = nextCursor;
+        }
+      }
+      allProducts = results;
+      render();
+    }
+
+    function categoryName(id) { return categories.find((c) => c.id === id)?.name || '—'; }
+    function brandName(id) { return brands.find((b) => b.id === id)?.name || '—'; }
+
+    function daysUntil(dateStr) {
+      if (!dateStr) return null;
+      const diff = (new Date(dateStr) - new Date());
+      return Math.ceil(diff / 86400000);
+    }
+
+    function render() {
+      const term = document.getElementById('search').value.trim().toLowerCase();
+      const stockFilter = document.getElementById('filter-stock').value;
+      const expiryFilter = document.getElementById('filter-expiry').value;
+      const categoryFilter = document.getElementById('filter-category').value;
+      const brandFilter = document.getElementById('filter-brand').value;
+      const sortBy = document.getElementById('sort-by').value;
+
+      let list = allProducts.filter((p) => {
+        if (term && !(p.itemName?.toLowerCase().includes(term) || p.barcode?.includes(term))) return false;
+        if (categoryFilter && p.category !== categoryFilter) return false;
+        if (brandFilter && p.brand !== brandFilter) return false;
+        const stock = Number(p.currentStock || 0);
+        if (stockFilter === 'low' && !(p.reorderLevel && stock <= Number(p.reorderLevel) && stock > 0)) return false;
+        if (stockFilter === 'out' && stock !== 0) return false;
+        if (expiryFilter !== 'all') {
+          const d = daysUntil(p.expiryDate);
+          if (d === null) return false;
+          if (expiryFilter === 'expired') { if (d >= 0) return false; }
+          else if (d < 0 || d > Number(expiryFilter)) return false;
+        }
+        return true;
+      });
+
+      list.sort((a, b) => {
+        const av = a[sortBy], bv = b[sortBy];
+        if (sortBy === 'currentStock' || sortBy === 'sellingPrice' || sortBy === 'mrp') return (Number(av) || 0) - (Number(bv) || 0);
+        return String(av || '').localeCompare(String(bv || ''));
+      });
+
+      const el = document.getElementById('rows');
+      el.innerHTML = list.length ? list.map(renderRow).join('') : '<tr><td colspan="8" style="color:var(--ink-muted);">No products match these filters.</td></tr>';
+    }
+
+    function renderRow(p) {
+      const stock = Number(p.currentStock || 0);
+      let stockBadge = '';
+      if (stock === 0) stockBadge = '<span class="badge out-of-stock">Out</span>';
+      else if (p.reorderLevel && stock <= Number(p.reorderLevel)) stockBadge = '<span class="badge low-stock">Low</span>';
+      const d = daysUntil(p.expiryDate);
+      let expiryBadge = p.expiryDate || '—';
+      if (d !== null && d < 0) expiryBadge = `<span class="badge out-of-stock">Expired</span>`;
+      else if (d !== null && d <= 30) expiryBadge = `<span class="badge low-stock">${p.expiryDate}</span>`;
+      return `
+        <tr>
+          <td>${escapeHtml(p.itemName)}</td>
+          <td>${escapeHtml(categoryName(p.category))}</td>
+          <td>${escapeHtml(brandName(p.brand))}</td>
+          <td class="num">${stock} ${stockBadge}</td>
+          <td class="num">${p.reorderLevel ?? '—'}</td>
+          <td>${expiryBadge}</td>
+          <td><span class="badge ${p.status}">${p.status}</span></td>
+          <td><button data-ledger="${p.productId}">Stock Ledger</button></td>
+        </tr>`;
+    }
+
+    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('filter-stock').addEventListener('change', render);
+    document.getElementById('filter-expiry').addEventListener('change', render);
+    document.getElementById('filter-category').addEventListener('change', render);
+    document.getElementById('filter-brand').addEventListener('change', render);
+    document.getElementById('sort-by').addEventListener('change', render);
+    document.getElementById('filter-status').addEventListener('change', loadAll);
+
+    document.getElementById('rows').addEventListener('click', async (e) => {
+      const productId = e.target.dataset.ledger;
+      if (!productId) return;
+      currentProductId = productId;
+      const product = allProducts.find((p) => p.productId === productId);
+      document.getElementById('ledger-title').textContent = `Stock Ledger — ${product?.itemName || productId}`;
+      await renderLedger();
+      document.getElementById('ledger-dialog').showModal();
+    });
+
+    async function renderLedger() {
+      const entries = await getLedgerForProduct(currentProductId);
+      const el = document.getElementById('ledger-rows');
+      el.innerHTML = entries.length ? entries.map((l) => `
+        <tr>
+          <td class="mono" style="font-size:0.78rem;">${l.dateTime?.toDate ? l.dateTime.toDate().toLocaleString() : '—'}</td>
+          <td>${l.type}</td>
+          <td class="num">${l.quantityChange > 0 ? '+' : ''}${l.quantityChange}</td>
+          <td class="num">${l.previousStock}</td>
+          <td class="num">${l.newStock}</td>
+          <td>${l.source}</td>
+          <td style="font-size:0.8rem;">${escapeHtml(l.remarks || '')}</td>
+        </tr>`).join('') : '<tr><td colspan="7" style="color:var(--ink-muted);">No ledger entries yet.</td></tr>';
+    }
+
+    document.getElementById('ledger-close-btn').addEventListener('click', () => document.getElementById('ledger-dialog').close());
+
+    document.getElementById('adj-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('adj-error');
+      errEl.style.display = 'none';
+      try {
+        const type = document.getElementById('adj-type').value;
+        const qty = Number(document.getElementById('adj-qty').value);
+        if (!qty) throw new Error('Enter a non-zero quantity change.');
+        await applyStockChange({
+          productId: currentProductId, type, quantityChange: qty, source: 'POS',
+          userId: user.uid, remarks: document.getElementById('adj-remarks').value.trim()
+        });
+        document.getElementById('adj-qty').value = '';
+        document.getElementById('adj-remarks').value = '';
+        await renderLedger();
+        await loadAll();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    });
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    await loadAll();
+  </script>
+</body>
+</html>

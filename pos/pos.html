@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POS Billing — Counter POS</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app-shell-root"></div>
+  <main id="page-content" style="display:none;">
+    <div class="pos-layout">
+      <div>
+        <h1 style="margin-bottom:0.5rem;">POS Billing</h1>
+        <div class="field">
+          <input id="scan-input" placeholder="Scan barcode, or type item name / brand…" autocomplete="off" style="font-size:1.05rem;padding:0.7em;">
+        </div>
+        <div id="scan-results" class="scan-results" style="display:none;"></div>
+        <div id="barcode-not-found" class="error-list" style="display:none;"></div>
+
+        <table class="pos-cart-table" style="margin-top:1.25rem;">
+          <thead>
+            <tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Discount</th><th class="num">GST%</th><th class="num">Taxable</th><th class="num">Line Total</th><th></th></tr>
+          </thead>
+          <tbody id="cart-rows"><tr><td colspan="8" style="color:var(--ink-muted);">Cart is empty — scan or search a product above.</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="pos-sidebar">
+        <div class="card">
+          <label for="customer-select">Customer</label>
+          <div style="display:flex;gap:0.4em;">
+            <select id="customer-select" style="flex:1;"><option value="">Walk-in Customer</option></select>
+            <button type="button" id="quick-add-customer" title="Add new customer">+</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field"><label for="bill-discount">Bill Discount (₹)</label><input id="bill-discount" type="number" min="0" value="0"></div>
+          <div class="totals-row"><span>Subtotal</span><span class="mono" id="t-subtotal">₹0.00</span></div>
+          <div class="totals-row"><span>Discount</span><span class="mono" id="t-discount">₹0.00</span></div>
+          <div class="totals-row"><span>GST</span><span class="mono" id="t-tax">₹0.00</span></div>
+          <div class="totals-row grand"><span>Total</span><span class="mono" id="t-grand">₹0.00</span></div>
+        </div>
+
+        <div class="card">
+          <label>Payment</label>
+          <div id="payment-rows"></div>
+          <button type="button" id="add-payment-row" style="width:100%;margin-top:0.3em;">+ Add Payment</button>
+          <div class="totals-row" style="margin-top:0.6em;"><span>Paid</span><span class="mono" id="t-paid">₹0.00</span></div>
+          <div class="totals-row"><span id="remaining-label">Remaining</span><span class="mono" id="t-remaining">₹0.00</span></div>
+        </div>
+
+        <div class="toolbar" style="flex-direction:column;align-items:stretch;">
+          <button id="complete-btn" class="primary" style="width:100%;">Complete Sale</button>
+          <button id="hold-btn" style="width:100%;">Hold Bill</button>
+          <button id="resume-btn" style="width:100%;">Resume Held Bill</button>
+          <button id="cancel-btn" class="danger" style="width:100%;">Cancel Bill</button>
+        </div>
+        <div id="sale-error" class="error-list" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Resume Bill dialog -->
+    <dialog id="held-dialog" style="width:min(520px,92vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <h2>Held Bills</h2>
+      <div id="held-list"></div>
+      <div class="toolbar"><div class="spacer"></div><button type="button" id="held-close-btn">Close</button></div>
+    </dialog>
+
+    <!-- Invoice / receipt dialog -->
+    <dialog id="invoice-dialog" style="width:min(420px,92vw);border:1px solid var(--line);border-radius:var(--radius);padding:1.5rem;">
+      <div id="invoice-content"></div>
+      <div class="toolbar" style="margin-top:1rem;">
+        <button type="button" id="invoice-close-btn">Close</button>
+        <div class="spacer"></div>
+        <button type="button" id="invoice-print-btn" class="primary">Print</button>
+      </div>
+    </dialog>
+    <div id="invoice-print-area"></div>
+  </main>
+
+  <script type="module">
+    import { requireAuth, can } from './js/auth/auth.js';
+    import { mountShell } from './js/app/shell.js';
+    import { db } from './js/firebase/init.js';
+    import { collection, getDocs, query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+    import { findByBarcode } from './js/products/productService.js';
+    import { listCustomers, createCustomer } from './js/customers/customerService.js';
+    import { computeLine, computeBill, sumPayments } from './js/pos/billingCalc.js';
+    import { createSale, watchConnectivityForInvoiceReconciliation, reconcilePendingInvoiceNumbers } from './js/pos/saleService.js';
+    import { holdBill, listHeldBills, deleteHeldBill } from './js/pos/heldBillService.js';
+    import { getStoreInfo } from './js/config/storeSettings.js';
+
+    const { user } = await requireAuth();
+    document.getElementById('page-content').style.display = '';
+    mountShell({ activePage: 'pos.html' });
+
+    // Barcode scanners (USB/Bluetooth HID) type into whatever field has
+    // focus and end with Enter — so keeping this input auto-focused is the
+    // entire "scanner support" story (section 46). Camera-based scanning is
+    // intentionally NOT implemented in this phase (would need a dedicated
+    // camera/decoding library) rather than shipped as a button that does
+    // nothing.
+    const scanInput = document.getElementById('scan-input');
+    scanInput.focus();
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('dialog') && !e.target.closest('input') && !e.target.closest('select') && !e.target.closest('button')) scanInput.focus();
+    });
+
+    let cart = [];
+    let catalog = [];
+    let customers = [];
+    let payments = [{ method: 'CASH', amount: 0 }];
+
+    async function loadCatalog() {
+      const snap = await getDocs(query(collection(db, 'products'), where('status', '==', 'active')));
+      catalog = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    }
+    async function loadCustomers() {
+      customers = await listCustomers();
+      document.getElementById('customer-select').innerHTML = '<option value="">Walk-in Customer</option>' +
+        customers.map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.mobile || c.id})</option>`).join('');
+    }
+
+    await loadCatalog();
+    await loadCustomers();
+    const storeInfo = await getStoreInfo();
+    watchConnectivityForInvoiceReconciliation();
+    reconcilePendingInvoiceNumbers().catch(() => {});
+
+    function addToCart(product, qty = 1) {
+      const existing = cart.find((c) => c.productId === product.productId);
+      if (existing) { existing.qty += qty; }
+      else {
+        cart.push({
+          productId: product.productId, itemName: product.itemName, barcode: product.barcode || '',
+          hsn: product.hsn || '', qty, rate: Number(product.sellingPrice) || 0, mrp: Number(product.mrp) || 0,
+          gstPercent: Number(product.gstPercent) || 0, discountAmount: 0, _stockAtAdd: Number(product.currentStock || 0)
+        });
+      }
+      renderCart();
+      clearScan();
+    }
+
+    function clearScan() {
+      scanInput.value = '';
+      document.getElementById('scan-results').style.display = 'none';
+      document.getElementById('barcode-not-found').style.display = 'none';
+      scanInput.focus();
+    }
+
+    scanInput.addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      const term = scanInput.value.trim();
+      if (!term) return;
+      const byBarcode = await findByBarcode(term);
+      if (byBarcode.length === 1) { addToCart(byBarcode[0]); return; }
+      if (byBarcode.length > 1) { showResults(byBarcode); return; }
+      const nameMatches = catalog.filter((p) => p.itemName.toLowerCase().includes(term.toLowerCase()) || (p.brand || '').toLowerCase().includes(term.toLowerCase()));
+      if (nameMatches.length === 1) { addToCart(nameMatches[0]); return; }
+      if (nameMatches.length > 1) { showResults(nameMatches); return; }
+      showBarcodeNotFound(term);
+    });
+
+    scanInput.addEventListener('input', () => {
+      const term = scanInput.value.trim().toLowerCase();
+      document.getElementById('barcode-not-found').style.display = 'none';
+      if (term.length < 2) { document.getElementById('scan-results').style.display = 'none'; return; }
+      const matches = catalog.filter((p) => p.itemName.toLowerCase().includes(term) || (p.brand || '').toLowerCase().includes(term) || (p.barcode || '').includes(term)).slice(0, 8);
+      showResults(matches);
+    });
+
+    function showResults(products) {
+      const el = document.getElementById('scan-results');
+      if (!products.length) { el.style.display = 'none'; return; }
+      el.style.display = 'block';
+      el.innerHTML = products.map((p) => `
+        <div class="row" data-add="${p.productId}">
+          <span>${escapeHtml(p.itemName)} <span class="mono" style="color:var(--ink-muted);">${escapeHtml(p.barcode || '')}</span></span>
+          <span class="mono">₹${Number(p.sellingPrice || 0).toFixed(2)} · stock ${p.currentStock ?? 0}</span>
+        </div>`).join('');
+    }
+    document.getElementById('scan-results').addEventListener('click', (e) => {
+      const id = e.target.closest('[data-add]')?.dataset.add;
+      if (!id) return;
+      const product = catalog.find((p) => p.productId === id);
+      if (product) addToCart(product);
+    });
+
+    function showBarcodeNotFound(term) {
+      const el = document.getElementById('barcode-not-found');
+      el.style.display = 'block';
+      el.innerHTML = `<strong>BARCODE NOT FOUND</strong> for "${escapeHtml(term)}". <a href="products.html" target="_blank">Create Product</a> or try a different search term.`;
+    }
+
+    function renderCart() {
+      const el = document.getElementById('cart-rows');
+      if (!cart.length) { el.innerHTML = '<tr><td colspan="8" style="color:var(--ink-muted);">Cart is empty — scan or search a product above.</td></tr>'; renderTotals(); return; }
+      el.innerHTML = cart.map((item, i) => {
+        const line = computeLine(item);
+        const lowStockWarning = item.qty > item._stockAtAdd ? ' style="color:var(--danger);"' : '';
+        return `
+          <tr>
+            <td${lowStockWarning}>${escapeHtml(item.itemName)}</td>
+            <td class="num"><input type="number" min="1" value="${item.qty}" data-qty="${i}"></td>
+            <td class="num mono">₹${item.rate.toFixed(2)}</td>
+            <td class="num"><input type="number" min="0" value="${item.discountAmount}" data-discount="${i}"></td>
+            <td class="num mono">${item.gstPercent}%</td>
+            <td class="num mono">₹${line.taxableValue.toFixed(2)}</td>
+            <td class="num mono">₹${line.lineTotal.toFixed(2)}</td>
+            <td><button type="button" data-remove="${i}">✕</button></td>
+          </tr>`;
+      }).join('');
+      renderTotals();
+    }
+
+    document.getElementById('cart-rows').addEventListener('input', (e) => {
+      const qtyIdx = e.target.dataset.qty;
+      const discIdx = e.target.dataset.discount;
+      if (qtyIdx !== undefined) cart[qtyIdx].qty = Math.max(1, Number(e.target.value) || 1);
+      if (discIdx !== undefined) cart[discIdx].discountAmount = Math.max(0, Number(e.target.value) || 0);
+      renderCart();
+    });
+    document.getElementById('cart-rows').addEventListener('click', (e) => {
+      const idx = e.target.dataset.remove;
+      if (idx === undefined) return;
+      cart.splice(idx, 1);
+      renderCart();
+    });
+
+    document.getElementById('bill-discount').addEventListener('input', renderTotals);
+
+    function renderTotals() {
+      const computed = cart.map((item) => ({ ...item, ...computeLine(item) }));
+      const billDiscount = Number(document.getElementById('bill-discount').value) || 0;
+      const bill = computeBill(computed, billDiscount);
+      document.getElementById('t-subtotal').textContent = `₹${bill.subtotal.toFixed(2)}`;
+      document.getElementById('t-discount').textContent = `₹${bill.billDiscount.toFixed(2)}`;
+      document.getElementById('t-tax').textContent = `₹${bill.tax.toFixed(2)}`;
+      document.getElementById('t-grand').textContent = `₹${bill.grandTotal.toFixed(2)}`;
+      renderPayments(bill.grandTotal);
+      return bill;
+    }
+
+    function renderPayments(grandTotal) {
+      const el = document.getElementById('payment-rows');
+      el.innerHTML = payments.map((p, i) => `
+        <div class="payment-row">
+          <select data-pay-method="${i}" style="flex:1;">
+            <option value="CASH" ${p.method === 'CASH' ? 'selected' : ''}>Cash</option>
+            <option value="UPI" ${p.method === 'UPI' ? 'selected' : ''}>UPI</option>
+            <option value="CARD" ${p.method === 'CARD' ? 'selected' : ''}>Card</option>
+            <option value="OTHER" ${p.method === 'OTHER' ? 'selected' : ''}>Other</option>
+          </select>
+          <input type="number" min="0" value="${p.amount}" data-pay-amount="${i}" style="width:90px;">
+          ${payments.length > 1 ? `<button type="button" data-pay-remove="${i}">✕</button>` : ''}
+        </div>`).join('');
+      const paid = sumPayments(payments);
+      const remaining = Math.max(0, grandTotal - paid);
+      document.getElementById('t-paid').textContent = `₹${paid.toFixed(2)}`;
+      document.getElementById('t-remaining').textContent = `₹${(grandTotal - paid).toFixed(2)}`;
+      document.getElementById('remaining-label').textContent = paid > grandTotal ? 'Change Due' : 'Remaining';
+      document.getElementById('complete-btn').disabled = cart.length === 0 || paid < grandTotal - 0.009;
+    }
+
+    document.getElementById('payment-rows').addEventListener('input', (e) => {
+      const mi = e.target.dataset.payMethod, ai = e.target.dataset.payAmount;
+      if (mi !== undefined) payments[mi].method = e.target.value;
+      if (ai !== undefined) payments[ai].amount = Number(e.target.value) || 0;
+      renderTotals();
+    });
+    document.getElementById('payment-rows').addEventListener('click', (e) => {
+      const idx = e.target.dataset.payRemove;
+      if (idx === undefined) return;
+      payments.splice(idx, 1);
+      renderTotals();
+    });
+    document.getElementById('add-payment-row').addEventListener('click', () => { payments.push({ method: 'CASH', amount: 0 }); renderTotals(); });
+
+    document.getElementById('quick-add-customer').addEventListener('click', async () => {
+      const name = prompt('New customer name:');
+      if (!name || !name.trim()) return;
+      const mobile = prompt('Mobile (optional):') || '';
+      const id = await createCustomer({ name: name.trim(), mobile: mobile.trim(), status: 'active' }, { userId: user.uid });
+      await loadCustomers();
+      document.getElementById('customer-select').value = id;
+    });
+
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+      if (!cart.length || confirm('Discard this bill?')) { cart = []; payments = [{ method: 'CASH', amount: 0 }]; document.getElementById('bill-discount').value = 0; renderCart(); }
+    });
+
+    document.getElementById('hold-btn').addEventListener('click', async () => {
+      if (!cart.length) return;
+      await holdBill({ cartItems: cart, customerId: document.getElementById('customer-select').value, billDiscount: Number(document.getElementById('bill-discount').value) || 0, userId: user.uid });
+      cart = []; payments = [{ method: 'CASH', amount: 0 }]; document.getElementById('bill-discount').value = 0;
+      renderCart();
+    });
+
+    document.getElementById('resume-btn').addEventListener('click', async () => {
+      const held = await listHeldBills();
+      const el = document.getElementById('held-list');
+      el.innerHTML = held.length ? held.map((h) => `
+        <div class="toolbar" style="justify-content:space-between;">
+          <span>${escapeHtml(h.label)} — ${h.cartItems.length} item(s)</span>
+          <button type="button" data-resume="${h.id}">Resume</button>
+        </div>`).join('') : '<p style="color:var(--ink-muted);">No held bills.</p>';
+      document.getElementById('held-dialog').showModal();
+    });
+    document.getElementById('held-list').addEventListener('click', async (e) => {
+      const id = e.target.dataset.resume;
+      if (!id) return;
+      const held = (await listHeldBills()).find((h) => h.id === id);
+      if (!held) return;
+      cart = held.cartItems;
+      document.getElementById('bill-discount').value = held.billDiscount || 0;
+      document.getElementById('customer-select').value = held.customerId || '';
+      await deleteHeldBill(id);
+      document.getElementById('held-dialog').close();
+      renderCart();
+    });
+    document.getElementById('held-close-btn').addEventListener('click', () => document.getElementById('held-dialog').close());
+
+    document.getElementById('complete-btn').addEventListener('click', async () => {
+      const errEl = document.getElementById('sale-error');
+      errEl.style.display = 'none';
+      document.getElementById('complete-btn').disabled = true;
+      try {
+        const billDiscount = Number(document.getElementById('bill-discount').value) || 0;
+        const customerId = document.getElementById('customer-select').value || null;
+        const sale = await createSale(cart, { customerId, billDiscount, paymentDetails: payments, userId: user.uid });
+        await loadCatalog(); // refresh in-memory stock snapshot for the next sale's low-stock coloring
+        showInvoice(sale, customers.find((c) => c.id === customerId));
+        cart = []; payments = [{ method: 'CASH', amount: 0 }]; document.getElementById('bill-discount').value = 0;
+        renderCart();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        renderTotals();
+      }
+    });
+
+    function showInvoice(sale, customer) {
+      const html = `
+        <div class="invoice-box">
+          <h2>${escapeHtml(storeInfo.name || 'Counter POS')}</h2>
+          <p class="center">${escapeHtml(storeInfo.address || '')}${storeInfo.gstin ? ` · GSTIN ${escapeHtml(storeInfo.gstin)}` : ''}</p>
+          <p class="center mono">Invoice: ${sale.invoiceNumber || '(pending — will assign once online)'}<br>${new Date().toLocaleString()}<br>Cashier: ${escapeHtml(user.email)}<br>Customer: ${customer ? escapeHtml(customer.name) : 'Walk-in'}</p>
+          <table>
+            <thead><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead>
+            <tbody>${sale.items.map((i) => `<tr><td>${escapeHtml(i.itemNameSnapshot)}</td><td>${i.qty}</td><td>${i.rate.toFixed(2)}</td><td>${i.lineTotal.toFixed(2)}</td></tr>`).join('')}</tbody>
+          </table>
+          <div class="totals-row"><span>Subtotal</span><span>₹${sale.subtotal.toFixed(2)}</span></div>
+          <div class="totals-row"><span>Discount</span><span>₹${sale.billDiscount.toFixed(2)}</span></div>
+          <div class="totals-row"><span>GST</span><span>₹${sale.tax.toFixed(2)}</span></div>
+          <div class="totals-row grand"><span>Total</span><span>₹${sale.grandTotal.toFixed(2)}</span></div>
+          <p class="center" style="margin-top:0.5em;">${sale.paymentDetails.map((p) => `${p.method}: ₹${Number(p.amount).toFixed(2)}`).join(' · ')}</p>
+        </div>`;
+      document.getElementById('invoice-content').innerHTML = html;
+      document.getElementById('invoice-print-area').innerHTML = html;
+      document.getElementById('invoice-dialog').showModal();
+    }
+    document.getElementById('invoice-close-btn').addEventListener('click', () => document.getElementById('invoice-dialog').close());
+    document.getElementById('invoice-print-btn').addEventListener('click', () => window.print());
+
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    renderCart();
+  </script>
+</body>
+</html>
