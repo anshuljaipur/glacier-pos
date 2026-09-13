@@ -1,0 +1,14 @@
+{
+  "name": "retail-pos-functions",
+  "engines": { "node": "20" },
+  "main": "src/index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  }
+}

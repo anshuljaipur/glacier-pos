@@ -1,0 +1,106 @@
+rules_version = '2';
+
+// Role-based access. Roles are set as a custom claim `role` on the Firebase
+// Auth token (see functions/src/setUserRole.js). Never trust a role stored
+// in a client-writable document for authorization decisions.
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+function role() {
+  return isSignedIn() ? request.auth.token.role : null;
+}
+
+function hasAnyRole(roles) {
+  return isSignedIn() && role() in roles;
+}
+
+function isOwnerOrManager() {
+  return hasAnyRole(['owner', 'manager']);
+}
+
+// Fields a cashier must never be able to change on a product, even though
+// cashiers can view products (section 28: "Cashier should not automatically
+// have permission to change MRP").
+// Fields a cashier must never be able to change on a product, even though
+// cashiers can view products (section 28: "Cashier should not automatically
+// have permission to change MRP"). updatedAt/updatedBy ride along with every
+// legitimate stock write (js/inventory/stockLedger.js), so they're allowed
+// alongside currentStock — MRP, sellingPrice, etc. are not.
+function cashierTouchesOnlyAllowedFields() {
+  let allowed = ['currentStock', 'updatedAt', 'updatedBy'];
+  return request.resource.data.diff(resource.data).affectedKeys()
+    .hasOnly(allowed) == false ? false : true;
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Master data ----------
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create, delete: if hasAnyRole(['owner', 'manager', 'inventoryStaff']);
+      allow update: if hasAnyRole(['owner', 'manager', 'inventoryStaff'])
+        || (hasAnyRole(['cashier']) && cashierTouchesOnlyAllowedFields());
+    }
+
+    match /customFieldDefs/{fieldKey} {
+      allow read: if isSignedIn();
+      allow write: if isOwnerOrManager();
+    }
+
+    match /categories/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','inventoryStaff']); }
+    match /subCategories/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','inventoryStaff']); }
+    match /brands/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','inventoryStaff']); }
+    match /units/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','inventoryStaff']); }
+    match /taxes/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); }
+    match /hsn/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); }
+    match /customers/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','cashier']); }
+    match /suppliers/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); }
+    match /paymentModes/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); }
+
+    // ---------- Transactions: Firebase-only, never touched by Sheet sync ----------
+    match /sales/{id} {
+      allow read: if isSignedIn();
+      allow create: if hasAnyRole(['owner','manager','cashier']);
+      // Full mutation (voids/refunds) stays owner/manager only; any POS
+      // role that can create a sale may also backfill its invoiceNumber
+      // once connectivity returns (js/pos/saleService.js) — but nothing
+      // else about the sale.
+      allow update: if isOwnerOrManager()
+        || (hasAnyRole(['owner','manager','cashier','inventoryStaff'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['invoiceNumber', 'invoiceNumberPending']));
+      allow delete: if isOwnerOrManager();
+    }
+    match /heldBills/{id} { allow read, write: if isSignedIn(); } // ephemeral, shared-till scratch space
+    match /purchases/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','inventoryStaff','accountant']); }
+    match /salesReturns/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); } // matches PERMISSIONS.refund in auth.js — cashiers view/sell but don't process refunds
+    match /purchaseReturns/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','inventoryStaff']); }
+
+    match /stockLedger/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); // written by trusted app logic (sales/purchase/adjustment flows)
+      allow update, delete: if false; // ledger is append-only, never edited or deleted
+    }
+
+    match /expenses/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','accountant']); }
+    match /payments/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner','manager','cashier','accountant']); }
+
+    // ---------- System ----------
+    match /users/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); }
+    match /roles/{id} { allow read: if isSignedIn(); allow write: if hasAnyRole(['owner']); }
+    match /settings/{id} { allow read: if isSignedIn(); allow write: if isOwnerOrManager(); }
+    match /counters/{id} { allow read: if isSignedIn(); allow write: if isSignedIn(); } // guarded by transactions in code
+
+    match /syncMetadata/{id} { allow read: if isSignedIn(); allow write: if false; } // Cloud Functions only (Admin SDK bypasses rules)
+    match /syncLogs/{id} { allow read: if isSignedIn(); allow write: if false; }
+    match /syncConflicts/{id} { allow read: if hasAnyRole(['owner','manager','inventoryStaff']); allow write: if false; } // written only by the syncNow/resolveConflict Cloud Functions
+    match /syncFlags/{id} { allow read: if hasAnyRole(['owner','manager','inventoryStaff']); allow write: if false; } // written only by the sync Cloud Functions
+    match /auditLogs/{id} {
+      allow read: if isOwnerOrManager();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // audit trail is append-only
+    }
+  }
+}
